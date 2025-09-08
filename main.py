@@ -1,83 +1,57 @@
 import mss
 import numpy as np
-import cv2
-import pydirectinput
-import matplotlib.pyplot as plt
 
 import time  # to delay screenshot
 
 import color_mask as mask
 import pathfinding
+import debug_prints as debug
 
 time.sleep(2)
+# while True:
 while True:
 
-    # grab screenshots
     with mss.mss() as sct:
-        # minimap screenshot
+
+        # get minimap screenshot
         minimap_region = {"top": 0, "left": 2027, "width": 531, "height": 545}
         minimap_ss = np.array(sct.grab(minimap_region))
 
-        # boss direction screenshot
-        boss_region = {"top": 0, "left": 0, "width": 2025, "height": 1600}
-        boss_ss = np.array(sct.grab(boss_region))
+        # get game window screenshot
+        game_region = {"top": 0, "left": 0, "width": 2025, "height": 1600}
+        game_ss = np.array(sct.grab(game_region))
+        # # Debug: Getting minimap pixel region
+        # debug.display_BGR(minimap_ss)
 
-    # # DEBUG: Get HSV values for stuff on minimap
-    # map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
-    # plt.imshow(map)
-    # plt.show()
+        # # DEBUG: Get HSV values for stuff on minimap
+        # debug.display_HSV(minimap_ss)
 
-    # get boolean grid for walkable spaces
-    walkable_grid = mask.mask_minimap(minimap_ss)
-    
-    # get heading for boss
-    boss_heading = mask.get_boss_heading(boss_ss)
+    walkable_tiles = mask.get_walkable_tiles(minimap_ss)
+    centroids = pathfinding.get_room_centroids(walkable_tiles, minimap_ss)
 
-    # get headings for each room (helps push bot take paths through rooms and not greedy dash to boss)
-    room_headings = mask.get_room_headings(minimap_ss)
+    # convert centroids to vectors
+    room_coord_to_vec, room_vec_to_coord = pathfinding.get_room_vectors(centroids, minimap_ss)
+    # # DEBUG: Display Room Vectors
+    # debug.display_room_vectors(minimap_ss, room_vec_to_coord)
+
+    boss_heading = pathfinding.get_boss_heading(game_ss)
+    # # DEBUG: Display boss heading arrow
+    # debug.display_boss_heading(minimap_ss, boss_heading)
+
+    # find which room will get us to boss
+    best_room_vec = pathfinding.get_best_room_heading(list(room_vec_to_coord.keys()), boss_heading)
+    # # DEBUG: Display best room vector
+    # debug.display_ideal_room(minimap_ss, centroids, best_room_vec)
 
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
-    shrink_size = 5
-    walkable_grid_small = mask.downsample_mask(walkable_grid, shrink_size)
-
+    scale = 5
+    walkable_tiles_small = mask.downsample_mask(walkable_tiles, block_size=scale)
     # # DEBUG: display smaller map to double check resolution after shrinking
-    # img = (walkable_grid_small.astype(np.uint8)) * 255
-    # cv2.imshow("map", mask.resize_print(img, shrink_size))
-    # cv2.waitKey(0)
+    # debug.display_downsample_diff(walkable_tiles, walkable_tiles_small, scale)
 
-    # get desired path
-    start_row = walkable_grid_small.shape[0] // 2
-    start_col = walkable_grid_small.shape[1] // 2
-    path = pathfinding.direction_guided_search(
-        walkable_grid_small, 
-        start=(start_row, start_col), 
-        boss_heading=boss_heading, 
-        room_headings=room_headings
-    )
+    # get shortest path to best room
+    path = pathfinding.get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord, best_room_vec)
+    # # DEBUG: display map overlayed with shortest path
+    # debug.display_shorest_path(walkable_tiles_small, centroids, scale, path)
 
-
-    # DEBUG: overlays path over minimap
-    grid_color = np.stack([walkable_grid_small*255]*3, axis=-1).astype(np.uint8)  # grayscale to BGR
-    for r, c in path:
-        grid_color[r, c] = [0, 0, 255] 
-
-    # cv2.imshow("Path", mask.resize_print(grid_color, shrink_size))
-    # cv2.waitKey(0)
-
-
-    # translate coordinate path into keypresses
-    keys = []
-    for i in range(len(path) - 1):
-        current = path[i]
-        next = path[i+1]
-
-        delta_x = next[0] - current[0]
-        delta_y = next[1] - current[1]
-
-        key = pathfinding.map_delta_to_key(delta_x, delta_y)
-        keys.append(key)
-
-        if key:
-            pydirectinput.keyDown(key)
-            time.sleep(0.001)
-            pydirectinput.keyUp(key)
+    pathfinding.move_along_path(minimap_ss, scale, path)

@@ -1,66 +1,113 @@
-import heapq
 import numpy as np
+import cv2
+from skimage.graph import route_through_array
+import pydirectinput
+import time
+import math
 
-def direction_guided_search(grid, start, boss_heading, room_headings, max_steps=500):
-    """
-    grid: 2D numpy array, 0 = walkable, 1 = obstacle
-    start: (row, col)
-    __heading: (dx, dy) preferred direction
-    max_steps: cutoff to avoid infinite loops
-    """
+def get_room_centroids(walkable_tiles, minimap_ss):
+    # fill in small obstacles
+    kernel = np.ones((20,20), np.uint8)
+    map_filled = cv2.morphologyEx(walkable_tiles, cv2.MORPH_CLOSE, kernel)
 
+    # filter out corridors by only looking at bigger distances
+    dist = cv2.distanceTransform(map_filled.astype(np.uint8), cv2.DIST_L2, 5)
+    room_mask = (dist > 13).astype(np.uint8) * 255
 
-    rows, cols = grid.shape
-    visited = set()
-    came_from = {}
+    # get connected components
+    num_labels, labels = cv2.connectedComponents(room_mask)
 
-    # priority queue entries: (priority, (r, c))
-    frontier = []
-    heapq.heappush(frontier, (0, start))
+    # get center point to filter out spawn centroid
+    height, width = minimap_ss.shape[:2]
+    spawn_label = labels[height // 2, width // 2]
 
-    steps = 0
-    while frontier and steps <= max_steps:
-        _, (r, c) = heapq.heappop(frontier)
-        steps += 1
+    centroids = []
+    for label in range(1, num_labels):
 
-        if (r, c) in visited:
-            continue
-        visited.add((r, c))
+        if label != spawn_label:
+            mask = (labels == label).astype(np.uint8)
+            M = cv2.moments(mask)
 
-        # STOP CONDITION
-        if steps > 200:
-            # reconstruct path
-            path = []
-            cur = (r, c)
-            while cur in came_from:
-                path.append(cur)
-                cur = came_from[cur]
-            path.append(start)
-            path.reverse()
-            return path
+            if M["m00"] != 0:
+                cx = M["m10"] / M["m00"]
+                cy = M["m01"] / M["m00"]
+                centroids.append(np.array([cx, cy]))
 
-        # explore neighbors
-        for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
-            nr, nc = r + dr, c + dc
-            if 0 <= nr < rows and 0 <= nc < cols and grid[nr, nc] == 1:
-                if (nr, nc) not in visited:
-                    came_from[(nr, nc)] = (r, c)
+    # # DEBUG: Draw red circle at centroids
+    # # Draw centroids on top
+    # map_vis = cv2.cvtColor((map_filled).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    # for cx, cy in centroids:
+    #     cv2.circle(map_vis, (int(cx), int(cy)), radius=5, color=(0,0,255), thickness=-1)  # red dots
 
-                    # bias = alignment with heading
-                    vec_raw = np.array([nr - start[0], nc - start[1]])
-                    vec_norm = vec_raw / np.linalg.norm(vec_raw)  # normalize vec so dot product doesn't get influenced by direction
-                    boss_dot = np.dot(vec_norm, boss_heading)  # bigger = better alignment
-
-                    # get dot product for each room headings
-                    room_dots = []
-                    for room in room_headings:
-                        room_dots.append(np.dot(vec_norm, room))
-
-                    dist = np.linalg.norm(vec_raw)
-                    priority = dist - 0.1*boss_dot - max(room_dots)  # weight toward heading
-                    heapq.heappush(frontier, (priority, (nr, nc)))
+    # cv2.imshow("Walkable Tiles with Centroids", map_vis)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     
-    return None  # no path found
+    return centroids
+
+def get_room_vectors(room_centroids, minimap):
+    height, width = minimap.shape[:2]
+    player = np.array([width // 2, height // 2])
+
+    room_coord_to_vec = {}
+    room_vec_to_coord = {}
+    for room in room_centroids:
+        room_vec = room - player
+
+        # convert to tuple's to use as keys in dict
+        coord_tuple = tuple(room)
+        vec_tuple = tuple(room_vec)
+        
+        room_coord_to_vec[coord_tuple] = vec_tuple
+        room_vec_to_coord[vec_tuple] = coord_tuple
+        # room_vec = room_vec / np.linalg.norm(room_vec)
+    
+    return room_coord_to_vec, room_vec_to_coord
+
+def get_boss_heading(game_ss):
+    hsv_map = cv2.cvtColor(game_ss, cv2.COLOR_BGR2HSV)
+    height, width = hsv_map.shape[:2]
+    player = [width // 2, height // 2]
+
+    hsv_lower = np.array([4, 150, 150])
+    hsv_upper = np.array([7, 250, 250])
+    mask = cv2.inRange(hsv_map, hsv_lower, hsv_upper)
+
+    # Get moments for image
+    M = cv2.moments(mask, binaryImage = True)
+
+    if M["m00"] > 0:
+        cx = M["m10"] / M["m00"]
+        cy = M["m01"] / M["m00"]
+        average_point = np.array([cx, cy])
+
+        heading_vec = average_point - player
+        # heading_vec = heading_vec / np.linalg.norm(heading_vec)
+    else:
+        heading_vec = None
+
+    return heading_vec
+
+def get_best_room_heading(room_vectors, boss_heading):
+    dots = [np.dot(r, boss_heading) for r in room_vectors]
+    return room_vectors[np.argmax(dots)]
+
+def get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord, best_room_vec):
+    # establish cost array (walkable has cost 1, not walkable has cost 1000)
+    cost_array = np.where(walkable_tiles_small, 1, 1000)
+
+    height, width = minimap_ss.shape[:2]
+    player = (height // (2*scale), width // (2*scale))
+
+
+    # map room vec to room cord
+    best_room_x, best_room_y = room_vec_to_coord[tuple(best_room_vec)]
+    end = (int(best_room_y // scale), int(best_room_x // scale))
+
+    # find least cost path to room
+    indices, cost = route_through_array(cost_array, start=player, end=end, fully_connected=False)
+
+    return indices
 
 def map_delta_to_key(dr, dc):
     if dr == -1 and dc == 0:
@@ -73,3 +120,25 @@ def map_delta_to_key(dr, dc):
         return 'd'
     else:
         return None  # no movement
+
+def move_along_path(minimap, scale, indices):
+
+    height, width = minimap.shape[:2]
+    player = (height // (2*scale), width // (2*scale))
+
+    closest_index = min(
+        range(len(indices)),
+        key=lambda i: math.dist(player, indices[i])
+    )
+
+    target = indices[closest_index + 1]
+
+    dr = target[0] - player[0]
+    dc = target[1] - player[1]
+
+    key = map_delta_to_key(dr, dc)
+
+    if key:
+        pydirectinput.keyDown(key)
+        time.sleep(0.00001)
+        pydirectinput.keyUp(key)
