@@ -27,21 +27,31 @@ while True:
         # debug.display_HSV(minimap_ss)
 
     walkable_tiles = mask.get_walkable_tiles(minimap_ss)
-    centroids = pathfinding.get_room_centroids(walkable_tiles, minimap_ss)
+    # # DEBUG: Show walkable tiles mask
+    # debug.display_mask(walkable_tiles)
 
-    # convert centroids to vectors
-    room_coord_to_vec, room_vec_to_coord = pathfinding.get_room_vectors(centroids, minimap_ss)
-    # # DEBUG: Display Room Vectors
-    # debug.display_room_vectors(minimap_ss, room_vec_to_coord)
+    corridor_centroids = pathfinding.get_corridor_centroids(minimap_ss)
+    room_centroids = pathfinding.get_room_centroids(walkable_tiles, minimap_ss)
+
+    poi_coord_to_vec = {}
+    poi_vec_to_coord = {}
+
+    # add corridor centroids to vec coord mappings
+    poi_coord_to_vec, poi_vec_to_coord = pathfinding.get_coord_vector_maps(corridor_centroids, minimap_ss, poi_coord_to_vec, poi_vec_to_coord)
+    # add room centroids to vec coord mappings
+    poi_coord_to_vec, poi_vec_to_coord = pathfinding.get_coord_vector_maps(room_centroids, minimap_ss, poi_coord_to_vec, poi_vec_to_coord)
+
+    # DEBUG: Display poi vectors
+    debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
 
     boss_heading = pathfinding.get_boss_heading(game_ss)
     # # DEBUG: Display boss heading arrow
     # debug.display_boss_heading(minimap_ss, boss_heading)
 
     # find which room will get us to boss
-    best_room_vec = pathfinding.get_best_room_heading(list(room_vec_to_coord.keys()), boss_heading)
-    # # DEBUG: Display best room vector
-    # debug.display_ideal_room(minimap_ss, centroids, best_room_vec)
+    best_room_vec = pathfinding.get_best_room_heading(list(poi_vec_to_coord.keys()), boss_heading)
+    # DEBUG: Display best room vector
+    debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
 
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
     scale = 5
@@ -50,8 +60,12 @@ while True:
     # debug.display_downsample_diff(walkable_tiles, walkable_tiles_small, scale)
 
     # get shortest path to best room
-    path = pathfinding.get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord, best_room_vec)
-    # # DEBUG: display map overlayed with shortest path
-    # debug.display_shorest_path(walkable_tiles_small, centroids, scale, path)
+    path = pathfinding.get_shortest_path(walkable_tiles_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
+    # DEBUG: display map overlayed with shortest path
+    debug.display_shorest_path(walkable_tiles_small, list(poi_coord_to_vec.keys()), scale, path)
+
+    input()
 
     pathfinding.move_along_path(minimap_ss, scale, path)
+
+

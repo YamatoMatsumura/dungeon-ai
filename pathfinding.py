@@ -5,6 +5,28 @@ import pydirectinput
 import time
 import math
 
+def get_corridor_centroids(minimap_ss):
+    
+    # isolate out corridors from minimap
+    hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
+    bridge_hsv = np.array([12, 98, 120])
+    corridor_mask = cv2.inRange(hsv_map, bridge_hsv, bridge_hsv)
+
+    num_labels, labels = cv2.connectedComponents(corridor_mask)
+
+    centroids = []
+    for label in range(1, num_labels):
+
+        mask = (labels == label).astype(np.uint8)
+        M = cv2.moments(mask)
+
+        if M["m00"] != 0:
+            cx = M["m10"] / M["m00"]
+            cy = M["m01"] / M["m00"]
+            centroids.append(np.array([cx, cy]))
+
+    return centroids
+
 def get_room_centroids(walkable_tiles, minimap_ss):
     # fill in small obstacles
     kernel = np.ones((20,20), np.uint8)
@@ -45,24 +67,22 @@ def get_room_centroids(walkable_tiles, minimap_ss):
     
     return centroids
 
-def get_room_vectors(room_centroids, minimap):
+def get_coord_vector_maps(centroids, minimap, coord_to_vec, vec_to_coord):
     height, width = minimap.shape[:2]
     player = np.array([width // 2, height // 2])
 
-    room_coord_to_vec = {}
-    room_vec_to_coord = {}
-    for room in room_centroids:
-        room_vec = room - player
+    for center in centroids:
+        vec = center - player
 
         # convert to tuple's to use as keys in dict
-        coord_tuple = tuple(room)
-        vec_tuple = tuple(room_vec)
+        coord_tuple = tuple(center)
+        vec_tuple = tuple(vec)
         
-        room_coord_to_vec[coord_tuple] = vec_tuple
-        room_vec_to_coord[vec_tuple] = coord_tuple
+        coord_to_vec[coord_tuple] = vec_tuple
+        vec_to_coord[vec_tuple] = coord_tuple
         # room_vec = room_vec / np.linalg.norm(room_vec)
     
-    return room_coord_to_vec, room_vec_to_coord
+    return coord_to_vec, vec_to_coord
 
 def get_boss_heading(game_ss):
     hsv_map = cv2.cvtColor(game_ss, cv2.COLOR_BGR2HSV)
@@ -89,16 +109,20 @@ def get_boss_heading(game_ss):
     return heading_vec
 
 def get_best_room_heading(room_vectors, boss_heading):
+
+    # If no rooms seen, run towards boss
+    if len(room_vectors) == 0:
+        return boss_heading
+
     dots = [np.dot(r, boss_heading) for r in room_vectors]
     return room_vectors[np.argmax(dots)]
 
 def get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord, best_room_vec):
     # establish cost array (walkable has cost 1, not walkable has cost 1000)
-    cost_array = np.where(walkable_tiles_small, 1, 1000)
+    cost_array = np.where(walkable_tiles_small, 1, np.inf)
 
     height, width = minimap_ss.shape[:2]
     player = (height // (2*scale), width // (2*scale))
-
 
     # map room vec to room cord
     best_room_x, best_room_y = room_vec_to_coord[tuple(best_room_vec)]
@@ -106,6 +130,9 @@ def get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord
 
     # find least cost path to room
     indices, cost = route_through_array(cost_array, start=player, end=end, fully_connected=False)
+
+    if cost == np.inf:
+        print("No route")
 
     return indices
 
