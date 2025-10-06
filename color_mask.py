@@ -19,6 +19,16 @@ def get_walkable_tiles(minimap_ss):
         tile_masks[name] = mask
         combined_tiles = cv2.bitwise_or(combined_tiles, mask)
     
+    # Fill in center as walkable since arrow covers it up
+    center_row, center_col = hsv_map.shape[0] // 2, hsv_map.shape[1] // 2
+    cv2.rectangle(
+        combined_tiles,
+        (center_col - 13, center_row - 35),
+        (center_col + 15, center_row + 17),
+        color=255,
+        thickness=-1
+    )
+    
     return combined_tiles
 
 def downsample_mask(mask, block_size=5):
