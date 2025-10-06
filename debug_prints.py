@@ -14,7 +14,11 @@ def display_HSV(ss):
     plt.imshow(map)
     plt.show()
 
-def display_room_vectors(minimap_ss, room_vec_to_coord):
+def display_mask(boolean_array):
+    plt.imshow(boolean_array, cmap="gray")
+    plt.show()
+
+def display_poi_vectors(minimap_ss, room_vec_to_coord):
     # display vectors
     height, width = minimap_ss.shape[:2]
     player = [width // 2, height // 2]
