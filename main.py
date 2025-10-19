@@ -20,18 +20,31 @@ while True:
         # get game window screenshot
         game_region = {"top": 0, "left": 0, "width": 2025, "height": 1600}
         game_ss = np.array(sct.grab(game_region))
-        # # Debug: Getting minimap pixel region
+        # Debug: Getting minimap pixel region
         # debug.display_BGR(minimap_ss)
 
-        # # DEBUG: Get HSV values for stuff on minimap
+        # DEBUG: Get HSV values for stuff on minimap
         # debug.display_HSV(minimap_ss)
 
-    walkable_tiles = mask.get_walkable_tiles(minimap_ss)
-    # # DEBUG: Show walkable tiles mask
-    # debug.display_mask(walkable_tiles)
+    poi_masks = mask.get_walkable_poi_masks(minimap_ss)
+    # DEBUG: print out all walkable poi masks
+    # for mask_name, poi_mask in poi_masks.items():
+    #     debug.display_mask(mask_name, poi_mask)
+
+    combined_poi_mask = mask.combine_masks(poi_masks.values(), list(poi_masks.values())[0].shape)
+    # DEBUG: print out combined poi mask
+    # debug.display_mask("combined_mask", combined_poi_mask)
+
+    combined_poi_mask = mask.fill_in_center(combined_poi_mask)
+
+    # smooth out map with kernel (mainly used to filter out enemy outlines)
+    kernel = np.ones((10, 10), np.uint8)
+    combined_poi_mask = mask.smooth_out_mask(combined_poi_mask, kernel)
+    # DEBUG: Show final mask
+    # debug.display_mask("Final Combined", combined_poi_mask)
 
     corridor_centroids = pathfinding.get_corridor_centroids(minimap_ss)
-    room_centroids = pathfinding.get_room_centroids(walkable_tiles, minimap_ss)
+    room_centroids = pathfinding.get_room_centroids(combined_poi_mask, minimap_ss)
 
     poi_coord_to_vec = {}
     poi_vec_to_coord = {}
@@ -55,7 +68,7 @@ while True:
 
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
     scale = 5
-    walkable_tiles_small = mask.downsample_mask(walkable_tiles, block_size=scale)
+    walkable_tiles_small = mask.downsample_mask(combined_poi_mask, block_size=scale)
     # # DEBUG: display smaller map to double check resolution after shrinking
     # debug.display_downsample_diff(walkable_tiles, walkable_tiles_small, scale)
 

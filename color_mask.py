@@ -1,14 +1,59 @@
 import cv2
 import numpy as np
 
+def get_walkable_poi_masks(minimap_ss):
+    hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
+
+    # holds HSV values of poi's
+    tile_hsvs = {
+        "sand_room": np.array([16, 81, 163]),
+        "bridge/room": np.array([12, 98, 120]),
+        "player": np.array([0, 0, 255]),
+        "ship_room": np.array([170, 61, 63]),
+        "enemies": np.array([0, 255, 255])
+    }
+
+    poi_masks = {}
+    for name, hsv in tile_hsvs.items():
+        mask = cv2.inRange(hsv_map, hsv, hsv)
+        poi_masks[name] = mask
+    
+    return poi_masks
+
+def combine_masks(masks, shape):
+    combined_mask = np.zeros(shape, dtype=np.uint8)
+    for m in masks:
+        combined_mask = cv2.bitwise_or(combined_mask, m)
+    
+    return combined_mask
+
+def fill_in_center(mask):
+    # Fill in center as walkable since arrow covers it up
+    center_row, center_col = mask.shape[0] // 2, mask.shape[1] // 2
+    cv2.rectangle(
+        mask,
+        (center_col - 15, center_row - 35),
+        (center_col + 16, center_row + 17),
+        color=255,
+        thickness=-1
+    )
+
+    return mask
+
+def smooth_out_mask(mask, kernel):
+    smoothed_map = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+    return smoothed_map
+
 def get_walkable_tiles(minimap_ss):
     hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
 
     tile_hsvs = {
         "sand_room": np.array([16, 81, 163]),
-        "bridge": np.array([12, 98, 120]),
+        "bridge/room": np.array([12, 98, 120]),
         "player": np.array([0, 0, 255]),
         "ship_room": np.array([170, 61, 63]),
+        "enemies": np.array([0, 255, 255])
     }
 
     combined_tiles = np.zeros(hsv_map.shape[:2], dtype=np.uint8)
@@ -23,13 +68,17 @@ def get_walkable_tiles(minimap_ss):
     center_row, center_col = hsv_map.shape[0] // 2, hsv_map.shape[1] // 2
     cv2.rectangle(
         combined_tiles,
-        (center_col - 13, center_row - 35),
-        (center_col + 15, center_row + 17),
+        (center_col - 15, center_row - 35),
+        (center_col + 16, center_row + 17),
         color=255,
         thickness=-1
     )
+
+    # Smooth out noise (mostly comes from outline of enemies)
+    kernel = np.ones((10, 10), np.uint8)
+    smoothed_map = cv2.morphologyEx(combined_tiles, cv2.MORPH_CLOSE, kernel)
     
-    return combined_tiles
+    return smoothed_map
 
 def downsample_mask(mask, block_size=5):
     """

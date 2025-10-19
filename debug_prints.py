@@ -14,9 +14,9 @@ def display_HSV(ss):
     plt.imshow(map)
     plt.show()
 
-def display_mask(boolean_array):
-    plt.imshow(boolean_array, cmap="gray")
-    plt.show()
+def display_mask(window_name, boolean_array):
+    cv2.imshow(window_name, boolean_array)
+    cv2.waitKey(0)
 
 def display_poi_vectors(minimap_ss, room_vec_to_coord):
     # display vectors
