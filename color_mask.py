@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-def get_walkable_poi_masks(minimap_ss):
+def get_poi_masks(minimap_ss):
     hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
 
     # holds HSV values of poi's
@@ -45,40 +45,35 @@ def smooth_out_mask(mask, kernel):
 
     return smoothed_map
 
-def get_walkable_tiles(minimap_ss):
-    hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
+def get_room_mask(combined_poi_mask):
+    # fill in small obstacles
+    kernel = np.ones((20,20), np.uint8)
+    map_filled = cv2.morphologyEx(combined_poi_mask, cv2.MORPH_CLOSE, kernel)
 
-    tile_hsvs = {
-        "sand_room": np.array([16, 81, 163]),
-        "bridge/room": np.array([12, 98, 120]),
-        "player": np.array([0, 0, 255]),
-        "ship_room": np.array([170, 61, 63]),
-        "enemies": np.array([0, 255, 255])
-    }
+    # filter out corridors by only looking at bigger distances
+    dist = cv2.distanceTransform(map_filled.astype(np.uint8), cv2.DIST_L2, 5)
+    room_mask = (dist > 13).astype(np.uint8) * 255
 
-    combined_tiles = np.zeros(hsv_map.shape[:2], dtype=np.uint8)
+    return room_mask
 
-    tile_masks = {}
-    for name, hsv in tile_hsvs.items():
-        mask = cv2.inRange(hsv_map, hsv, hsv)
-        tile_masks[name] = mask
-        combined_tiles = cv2.bitwise_or(combined_tiles, mask)
+def get_walkable_pois(combined_poi_mask, poi_masks):
+
+    # get connected component that is walkable (i.e. the one player is currently located in)
+    num_labels, labels = cv2.connectedComponents(combined_poi_mask)
     
-    # Fill in center as walkable since arrow covers it up
-    center_row, center_col = hsv_map.shape[0] // 2, hsv_map.shape[1] // 2
-    cv2.rectangle(
-        combined_tiles,
-        (center_col - 15, center_row - 35),
-        (center_col + 16, center_row + 17),
-        color=255,
-        thickness=-1
-    )
+    center_row, center_col = combined_poi_mask.shape[0] // 2, combined_poi_mask.shape[1] // 2
+    center_label = labels[center_row, center_col]
 
-    # Smooth out noise (mostly comes from outline of enemies)
-    kernel = np.ones((10, 10), np.uint8)
-    smoothed_map = cv2.morphologyEx(combined_tiles, cv2.MORPH_CLOSE, kernel)
+    for label in range(1, num_labels):
+        if center_label == label:
+            walkable_mask = ((labels == label).astype(np.uint8))*255
+
+    # filter down poi mask to only walkable ones
+    walkable_poi_mask = {}
+    for name, mask in poi_masks.items():
+        walkable_poi_mask[name] = (cv2.bitwise_and(mask, walkable_mask))
     
-    return smoothed_map
+    return walkable_mask, walkable_poi_mask
 
 def downsample_mask(mask, block_size=5):
     """

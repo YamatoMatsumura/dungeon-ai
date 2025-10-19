@@ -26,14 +26,9 @@ while True:
         # DEBUG: Get HSV values for stuff on minimap
         # debug.display_HSV(minimap_ss)
 
-    poi_masks = mask.get_walkable_poi_masks(minimap_ss)
-    # DEBUG: print out all walkable poi masks
-    # for mask_name, poi_mask in poi_masks.items():
-    #     debug.display_mask(mask_name, poi_mask)
+    poi_masks = mask.get_poi_masks(minimap_ss)
 
     combined_poi_mask = mask.combine_masks(poi_masks.values(), list(poi_masks.values())[0].shape)
-    # DEBUG: print out combined poi mask
-    # debug.display_mask("combined_mask", combined_poi_mask)
 
     combined_poi_mask = mask.fill_in_center(combined_poi_mask)
 
@@ -43,8 +38,22 @@ while True:
     # DEBUG: Show final mask
     # debug.display_mask("Final Combined", combined_poi_mask)
 
-    corridor_centroids = pathfinding.get_corridor_centroids(minimap_ss)
-    room_centroids = pathfinding.get_room_centroids(combined_poi_mask, minimap_ss)
+    # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
+    poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
+    # DEBUG: print out all poi masks
+    # for mask_name, poi_mask in poi_masks.items():
+    #     debug.display_mask(mask_name, poi_mask)
+
+    # filter down poi's to ones that are reachable from current pos
+    walkable_mask, walkable_poi_mask = mask.get_walkable_pois(combined_poi_mask, poi_masks)
+    # DEBUG: display walkable masks
+    # debug.display_mask("walkable_map", walkable_mask)
+    # for mask_name, poi_mask in walkable_poi_mask.items():
+    #     debug.display_mask(f"{mask_name}_walkable", poi_mask)
+
+
+    corridor_centroids = pathfinding.get_corridor_centroids(walkable_poi_mask["bridge/room"])
+    room_centroids = pathfinding.get_room_centroids(walkable_poi_mask["room"])
 
     poi_coord_to_vec = {}
     poi_vec_to_coord = {}
@@ -55,7 +64,7 @@ while True:
     poi_coord_to_vec, poi_vec_to_coord = pathfinding.get_coord_vector_maps(room_centroids, minimap_ss, poi_coord_to_vec, poi_vec_to_coord)
 
     # DEBUG: Display poi vectors
-    debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
+    # debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
 
     boss_heading = pathfinding.get_boss_heading(game_ss)
     # # DEBUG: Display boss heading arrow
@@ -64,7 +73,7 @@ while True:
     # find which room will get us to boss
     best_room_vec = pathfinding.get_best_room_heading(list(poi_vec_to_coord.keys()), boss_heading)
     # DEBUG: Display best room vector
-    debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
+    # debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
 
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
     scale = 5

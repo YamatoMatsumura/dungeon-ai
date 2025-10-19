@@ -5,13 +5,7 @@ import pydirectinput
 import time
 import math
 
-def get_corridor_centroids(minimap_ss):
-    
-    # isolate out corridors from minimap
-    hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
-    bridge_hsv = np.array([12, 98, 120])
-    corridor_mask = cv2.inRange(hsv_map, bridge_hsv, bridge_hsv)
-
+def get_corridor_centroids(corridor_mask):
     num_labels, labels = cv2.connectedComponents(corridor_mask)
 
     centroids = []
@@ -27,20 +21,12 @@ def get_corridor_centroids(minimap_ss):
 
     return centroids
 
-def get_room_centroids(walkable_tiles, minimap_ss):
-    # fill in small obstacles
-    kernel = np.ones((20,20), np.uint8)
-    map_filled = cv2.morphologyEx(walkable_tiles, cv2.MORPH_CLOSE, kernel)
-
-    # filter out corridors by only looking at bigger distances
-    dist = cv2.distanceTransform(map_filled.astype(np.uint8), cv2.DIST_L2, 5)
-    room_mask = (dist > 13).astype(np.uint8) * 255
-
+def get_room_centroids(room_mask):
     # get connected components
     num_labels, labels = cv2.connectedComponents(room_mask)
 
     # get center point to filter out spawn centroid
-    height, width = minimap_ss.shape[:2]
+    height, width = room_mask.shape[:2]
     spawn_label = labels[height // 2, width // 2]
 
     centroids = []
