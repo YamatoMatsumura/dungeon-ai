@@ -62,7 +62,6 @@ while True:
     poi_coord_to_vec, poi_vec_to_coord = pathfinding.get_coord_vector_maps(corridor_centroids, minimap_ss, poi_coord_to_vec, poi_vec_to_coord)
     # add room centroids to vec coord mappings
     poi_coord_to_vec, poi_vec_to_coord = pathfinding.get_coord_vector_maps(room_centroids, minimap_ss, poi_coord_to_vec, poi_vec_to_coord)
-
     # DEBUG: Display poi vectors
     # debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
 
@@ -75,19 +74,35 @@ while True:
     # DEBUG: Display best room vector
     # debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
 
+    eroded_walkable_mask = pathfinding.shrink_walkable_mask(walkable_mask)
+    # DEBUG: Display before and after erode
+    # debug.display_mask("Before erode", walkable_mask)
+    # debug.display_mask("After Erode", eroded_walkable_mask)
+
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
     scale = 5
-    walkable_tiles_small = mask.downsample_mask(combined_poi_mask, block_size=scale)
-    # # DEBUG: display smaller map to double check resolution after shrinking
-    # debug.display_downsample_diff(walkable_tiles, walkable_tiles_small, scale)
+    walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=scale)
+    # DEBUG: display smaller map to double check resolution after shrinking
+    # debug.display_mask("walkable_mask", walkable_mask)
+    # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
+
+    # try:
+    #     # get shortest path to best room
+    #     path = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
+    #     # DEBUG: display map overlayed with shortest path
+    #     debug.display_shorest_path(walkable_mask_small, list(poi_coord_to_vec.keys()), scale, path)
+
+    #     pathfinding.move_along_path(minimap_ss, scale, path)
+    # except Exception as e:
+    #     print(f"Error: {e}")
 
     # get shortest path to best room
-    path = pathfinding.get_shortest_path(walkable_tiles_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
-    # DEBUG: display map overlayed with shortest path
-    debug.display_shorest_path(walkable_tiles_small, list(poi_coord_to_vec.keys()), scale, path)
+    path, cost = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
 
-    input()
-
-    pathfinding.move_along_path(minimap_ss, scale, path)
-
-
+    if cost is None:
+        debug.display_mask("stuck!!", walkable_mask)
+        print("No path Found...retrying...")
+    else:
+        # DEBUG: display map overlayed with shortest path
+        # debug.display_shorest_path(walkable_mask_small, list(poi_coord_to_vec.keys()), scale, path)
+        pathfinding.move_along_path(minimap_ss, scale, path, steps=15)

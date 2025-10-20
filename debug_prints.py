@@ -83,12 +83,8 @@ def display_ideal_room(minimap_ss, centroids, best_room_vec):
     cv2.imshow("Best Room Vector Test", best_room_vec_test)
     cv2.waitKey(0)
 
-def display_downsample_diff(walkable_tiles, walkable_tiles_small, scale):
-    cv2.imshow("map", walkable_tiles)
-    cv2.waitKey(0)
-    img = (walkable_tiles_small.astype(np.uint8)) * 255
-    cv2.imshow("map", mask.resize_print(img, scale))
-    cv2.waitKey(0)
+def resize_print(img, scale):
+    return cv2.resize(img, (img.shape[1]*scale, img.shape[0]*scale), interpolation=cv2.INTER_NEAREST)
 
 def display_shorest_path(walkable_tiles_small, centroids, scale, indices):
     plt.imshow(walkable_tiles_small, cmap="gray")
@@ -98,4 +94,3 @@ def display_shorest_path(walkable_tiles_small, centroids, scale, indices):
     y, x = zip(*indices)
     plt.plot(x, y, 'b-')
     plt.show()
-    print(len(indices))

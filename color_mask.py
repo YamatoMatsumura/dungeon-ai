@@ -10,7 +10,9 @@ def get_poi_masks(minimap_ss):
         "bridge/room": np.array([12, 98, 120]),
         "player": np.array([0, 0, 255]),
         "ship_room": np.array([170, 61, 63]),
-        "enemies": np.array([0, 255, 255])
+        "carpet": np.array([174, 163, 125]),
+        "enemies": np.array([0, 255, 255]),
+        "portal": np.array([120, 255, 255]),
     }
 
     poi_masks = {}
@@ -52,14 +54,14 @@ def get_room_mask(combined_poi_mask):
 
     # filter out corridors by only looking at bigger distances
     dist = cv2.distanceTransform(map_filled.astype(np.uint8), cv2.DIST_L2, 5)
-    room_mask = (dist > 13).astype(np.uint8) * 255
+    room_mask = (dist > 17).astype(np.uint8) * 255
 
     return room_mask
 
 def get_walkable_pois(combined_poi_mask, poi_masks):
 
     # get connected component that is walkable (i.e. the one player is currently located in)
-    num_labels, labels = cv2.connectedComponents(combined_poi_mask)
+    num_labels, labels = cv2.connectedComponents(combined_poi_mask, connectivity=4)
     
     center_row, center_col = combined_poi_mask.shape[0] // 2, combined_poi_mask.shape[1] // 2
     center_label = labels[center_row, center_col]
@@ -93,7 +95,4 @@ def downsample_mask(mask, block_size=5):
             block = mask[i*block_size:(i+1)*block_size, j*block_size:(j+1)*block_size]
             grid[i, j] = np.all(block)  # True if all pixels are walkable
 
-    return grid
-
-def resize_print(img, scale):
-    return cv2.resize(img, (img.shape[1]*scale, img.shape[0]*scale), interpolation=cv2.INTER_NEAREST)
+    return grid.astype(np.uint8) * 255

@@ -6,7 +6,7 @@ import time
 import math
 
 def get_corridor_centroids(corridor_mask):
-    num_labels, labels = cv2.connectedComponents(corridor_mask)
+    num_labels, labels = cv2.connectedComponents(corridor_mask, connectivity=4)
 
     centroids = []
     for label in range(1, num_labels):
@@ -23,7 +23,7 @@ def get_corridor_centroids(corridor_mask):
 
 def get_room_centroids(room_mask):
     # get connected components
-    num_labels, labels = cv2.connectedComponents(room_mask)
+    num_labels, labels = cv2.connectedComponents(room_mask, connectivity=4)
 
     # get center point to filter out spawn centroid
     height, width = room_mask.shape[:2]
@@ -103,9 +103,16 @@ def get_best_room_heading(room_vectors, boss_heading):
     dots = [np.dot(r, boss_heading) for r in room_vectors]
     return room_vectors[np.argmax(dots)]
 
-def get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord, best_room_vec):
+def shrink_walkable_mask(walkable_mask):
+    kernel = np.ones((5, 5), np.uint8)
+    eroded_walkable_mask = cv2.erode(walkable_mask, kernel)
+    return eroded_walkable_mask
+
+def get_shortest_path(walkable_mask_small, minimap_ss, scale, room_vec_to_coord, best_room_vec):
+
     # establish cost array (walkable has cost 1, not walkable has cost 1000)
-    cost_array = np.where(walkable_tiles_small, 1, np.inf)
+    cost_array = np.where(walkable_mask_small, 1, np.inf)
+
 
     height, width = minimap_ss.shape[:2]
     player = (height // (2*scale), width // (2*scale))
@@ -114,13 +121,11 @@ def get_shortest_path(walkable_tiles_small, minimap_ss, scale, room_vec_to_coord
     best_room_x, best_room_y = room_vec_to_coord[tuple(best_room_vec)]
     end = (int(best_room_y // scale), int(best_room_x // scale))
 
-    # find least cost path to room
-    indices, cost = route_through_array(cost_array, start=player, end=end, fully_connected=False)
-
-    if cost == np.inf:
-        print("No route")
-
-    return indices
+    try:
+        indices, cost = route_through_array(cost_array, start=player, end=end, fully_connected=False)
+        return indices, cost
+    except ValueError:
+        return None, None
 
 def map_delta_to_key(dr, dc):
     if dr == -1 and dc == 0:
@@ -134,24 +139,45 @@ def map_delta_to_key(dr, dc):
     else:
         return None  # no movement
 
-def move_along_path(minimap, scale, indices):
+def move_along_path(minimap, scale, indices, steps):
 
     height, width = minimap.shape[:2]
     player = (height // (2*scale), width // (2*scale))
 
+    # Start at closest index player is at
     closest_index = min(
         range(len(indices)),
         key=lambda i: math.dist(player, indices[i])
     )
 
-    target = indices[closest_index + 1]
+    # Make sure only going at max len(indices)
+    if steps > len(indices):
+        steps = len(indices)
 
-    dr = target[0] - player[0]
-    dc = target[1] - player[1]
+    
+    for i in range(1, steps+1):
+        target = indices[closest_index + i]
 
-    key = map_delta_to_key(dr, dc)
+        dr = target[0] - player[0]
+        dc = target[1] - player[1]
 
-    if key:
-        pydirectinput.keyDown(key)
-        time.sleep(0.00001)
-        pydirectinput.keyUp(key)
+        key = map_delta_to_key(dr, dc)
+
+        if key:
+            pydirectinput.keyDown(key)
+            time.sleep(0.00001)
+            pydirectinput.keyUp(key)
+        
+        player = (player[0] + dr, player[1] + dc)
+
+def update_global_map(global_map, current_map):
+    bgr_map = cv2.cvtColor(current_map, cv2.COLOR_GRAY2BGR)
+
+    stitcher = cv2.Stitcher_create()
+    status, stitched_image = stitcher.stitch([global_map, bgr_map])
+
+    if status == cv2.Stitcher_OK:
+        return stitched_image
+    else:
+        print("Stitching failed with status:", status)
+        return None
