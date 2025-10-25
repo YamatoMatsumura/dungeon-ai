@@ -71,28 +71,24 @@ def get_coord_vector_maps(centroids, minimap, coord_to_vec, vec_to_coord):
     return coord_to_vec, vec_to_coord
 
 def get_boss_heading(game_ss):
-    hsv_map = cv2.cvtColor(game_ss, cv2.COLOR_BGR2HSV)
-    height, width = hsv_map.shape[:2]
-    player = [width // 2, height // 2]
+    template = cv2.imread('sprites/boss_icon.png', cv2.IMREAD_GRAYSCALE)
 
-    hsv_lower = np.array([4, 150, 150])
-    hsv_upper = np.array([7, 250, 250])
-    mask = cv2.inRange(hsv_map, hsv_lower, hsv_upper)
+    screen_height, screen_width = game_ss.shape[:2]
+    player = np.array([screen_width // 2, screen_height // 2])
 
-    # Get moments for image
-    M = cv2.moments(mask, binaryImage = True)
+    game_bgr = np.array(game_ss)[:,:,:3].copy()  # MSS gives a 4th alpha channel, so shrink this down to 3 channels
+    game_gray = cv2.cvtColor(game_bgr, cv2.COLOR_BGR2GRAY)  # convert the 3 channels to grayscale
 
-    if M["m00"] > 0:
-        cx = M["m10"] / M["m00"]
-        cy = M["m01"] / M["m00"]
-        average_point = np.array([cx, cy])
+    result = cv2.matchTemplate(game_gray, template, cv2.TM_CCOEFF_NORMED)  
 
-        heading_vec = average_point - player
-        # heading_vec = heading_vec / np.linalg.norm(heading_vec)
-    else:
-        heading_vec = None
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
-    return heading_vec
+    template_height, template_width = template.shape
+    template_mid = np.array([max_loc[0] + template_width // 2, max_loc[1] + template_height // 2])
+
+    boss_heading_vec = template_mid - player
+
+    return boss_heading_vec
 
 def get_best_room_heading(room_vectors, boss_heading):
 
@@ -100,7 +96,7 @@ def get_best_room_heading(room_vectors, boss_heading):
     if len(room_vectors) == 0:
         return boss_heading
 
-    dots = [np.dot(r, boss_heading) for r in room_vectors]
+    dots = [np.dot(r/np.linalg.norm(r), boss_heading) for r in room_vectors]
     return room_vectors[np.argmax(dots)]
 
 def shrink_walkable_mask(walkable_mask):
@@ -155,7 +151,7 @@ def move_along_path(minimap, scale, indices, steps):
         steps = len(indices)
 
     
-    for i in range(1, steps+1):
+    for i in range(1, steps):
         target = indices[closest_index + i]
 
         dr = target[0] - player[0]

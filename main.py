@@ -51,7 +51,6 @@ while True:
     # for mask_name, poi_mask in walkable_poi_mask.items():
     #     debug.display_mask(f"{mask_name}_walkable", poi_mask)
 
-
     corridor_centroids = pathfinding.get_corridor_centroids(walkable_poi_mask["bridge/room"])
     room_centroids = pathfinding.get_room_centroids(walkable_poi_mask["room"])
 
