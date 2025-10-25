@@ -166,14 +166,53 @@ def move_along_path(minimap, scale, indices, steps):
         
         player = (player[0] + dr, player[1] + dc)
 
-def update_global_map(global_map, current_map):
-    bgr_map = cv2.cvtColor(current_map, cv2.COLOR_GRAY2BGR)
+def update_global_map(global_map, new_walkable_map):
+    minimap_h, minimap_w = new_walkable_map.shape[:2]
+    global_h, global_w = global_map.shape[:2]
 
-    stitcher = cv2.Stitcher_create()
-    status, stitched_image = stitcher.stitch([global_map, bgr_map])
+    # if first new map...
+    if np.all(global_map == 0):
+        # calculate center and subtract off half of new map dims
+        start_y = global_h // 2 - minimap_h // 2
+        start_x = global_w // 2 - minimap_w // 2
 
-    if status == cv2.Stitcher_OK:
-        return stitched_image
+        # add walkable map to center
+        global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = new_walkable_map
+
     else:
-        print("Stitching failed with status:", status)
-        return None
+        result = cv2.matchTemplate(global_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+        start_x, start_y = max_loc
+    
+        print(f"start_y: {start_y}")
+        print(f"start_x: {start_x}")
+        print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
+        print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
+
+        # check if map size needs to be expanded
+        expand_top = max(0, -start_y)
+        expand_left = max(0, -start_x)
+        expand_bottom = max(0, start_y + minimap_h - global_h)
+        expand_right = max(0, start_x + minimap_w - global_w)
+
+        if any([expand_top, expand_left, expand_bottom, expand_right]):
+            print("Map size changed!")
+            input()
+            new_h = global_h + expand_top + expand_bottom
+            new_w = global_w + expand_left + expand_right
+
+            # copy over old map
+            new_global = np.zeroes((new_h, new_w), dtype=global_map.dtype)
+            new_global[expand_top:expand_top+global_h, expand_left:expand_left+global_w] = global_map
+
+            # adjust start x and y in cases where needs more space in left or top
+            start_x += expand_left
+            start_y += expand_top
+
+            global_map = new_global        
+
+        # combine global and new map where it best overlaps (np.maximum prioritizes walkable (255) over walls (0))
+        region = global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w]
+        region = np.where(region == 0, 0, np.maximum(region, new_walkable_map))
+        global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = region

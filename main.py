@@ -8,13 +8,14 @@ import pathfinding
 import debug_prints as debug
 
 time.sleep(2)
-# while True:
+
+global_map = np.zeros((1000, 1000), dtype=np.uint8)
 while True:
 
     with mss.mss() as sct:
 
         # get minimap screenshot
-        minimap_region = {"top": 0, "left": 2027, "width": 531, "height": 545}
+        minimap_region = {"top": 5, "left": 2032, "width": 522, "height": 533}
         minimap_ss = np.array(sct.grab(minimap_region))
 
         # get game window screenshot
@@ -37,6 +38,9 @@ while True:
     combined_poi_mask = mask.smooth_out_mask(combined_poi_mask, kernel)
     # DEBUG: Show final mask
     # debug.display_mask("Final Combined", combined_poi_mask)
+
+    pathfinding.update_global_map(global_map, combined_poi_mask)
+    debug.display_mask("Global map", global_map)
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
     poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
@@ -103,5 +107,5 @@ while True:
         print("No path Found...retrying...")
     else:
         # DEBUG: display map overlayed with shortest path
-        # debug.display_shorest_path(walkable_mask_small, list(poi_coord_to_vec.keys()), scale, path)
+        debug.display_shorest_path(walkable_mask_small, list(poi_coord_to_vec.keys()), scale, path)
         pathfinding.move_along_path(minimap_ss, scale, path, steps=15)
