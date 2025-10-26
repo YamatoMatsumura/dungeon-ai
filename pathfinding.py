@@ -151,40 +151,47 @@ def map_delta_to_key(dr, dc):
     else:
         return None  # no movement
 
-def move_along_path(minimap, scale, indices, steps):
-
-    height, width = minimap.shape[:2]
-    player_rc = (height // (2*scale), width // (2*scale))
-
-    # Start at closest index player is at
-    closest_index = min(
-        range(len(indices)),
-        key=lambda i: math.dist(player_rc, indices[i])
-    )
+def move_along_path(indices, steps):
 
     # Make sure only going at max len(indices)
     if steps > len(indices):
         steps = len(indices)
-
     
-    for i in range(1, steps):
-        target_rc = indices[closest_index + i]
+    # 30 x's
 
-        dr = target_rc[0] - player_rc[0]
-        dc = target_rc[1] - player_rc[1]
+    # pydirectinput.keyDown('w')
+    # time.sleep(0.00001)
+    # pydirectinput.keyUp('w')
+
+    # pydirectinput.keyDown('d')
+    # time.sleep(1.72)
+    # pydirectinput.keyUp('d')
+    key_counts = []
+    last_key = None
+    count = 0
+    for i in range(1, steps):
+        dr = indices[i][0] - indices[i-1][0]
+        dc = indices[i][1] - indices[i-1][1]
 
         key = map_delta_to_key(dr, dc)
 
-        if key:
-            pydirectinput.keyDown(key)
-            time.sleep(0.00001)
-            pydirectinput.keyUp(key)
+        if key and key == last_key:
+            count += 1
+        else:
+            if last_key is not None:
+                key_counts.append((last_key, count))
+            last_key = key
+            count = 1
         
-        player_rc = (player_rc[0] + dr, player_rc[1] + dc)
+    KEY_TIME_MULT = 0.059
+    for key, count in key_counts:
+        pydirectinput.keyDown(key)
+        time.sleep(count*KEY_TIME_MULT)
+        pydirectinput.keyUp(key)
 
 def update_global_map(global_map, new_walkable_map):
 
-    debug.display_mask("new_walkable", new_walkable_map)
+    # debug.display_mask("new_walkable", new_walkable_map)
     
     minimap_h, minimap_w = new_walkable_map.shape[:2]
     global_h, global_w = global_map.shape[:2]
