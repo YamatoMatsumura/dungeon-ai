@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+import debug_prints as debug
+
 def get_poi_masks(minimap_ss):
     hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
 
@@ -31,11 +33,13 @@ def combine_masks(masks, shape):
 
 def fill_in_center(mask):
     # Fill in center as walkable since arrow covers it up
-    center_row, center_col = mask.shape[0] // 2, mask.shape[1] // 2
+    center_r, center_c = mask.shape[0] // 2, mask.shape[1] // 2
+
+    mask_color = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
     cv2.rectangle(
-        mask,
-        (center_col - 15, center_row - 35),
-        (center_col + 16, center_row + 17),
+        mask_color,
+        (center_c - 14, center_r - 34),
+        (center_c + 14, center_r + 18),
         color=255,
         thickness=-1
     )
