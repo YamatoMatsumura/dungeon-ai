@@ -151,32 +151,27 @@ def map_delta_to_key(dr, dc):
     else:
         return None  # no movement
 
-def move_along_path(indices, steps):
+def move_along_path(path, steps):
 
-    # Make sure only going at max len(indices)
-    if steps > len(indices):
-        steps = len(indices)
+    # Make sure only going at max len(path)
+    if steps > len(path):
+        steps = len(path)
     
-    # 30 x's
-
-    # pydirectinput.keyDown('w')
-    # time.sleep(0.00001)
-    # pydirectinput.keyUp('w')
-
-    # pydirectinput.keyDown('d')
-    # time.sleep(1.72)
-    # pydirectinput.keyUp('d')
+    
     key_counts = []
     last_key = None
     count = 0
     for i in range(1, steps):
-        dr = indices[i][0] - indices[i-1][0]
-        dc = indices[i][1] - indices[i-1][1]
+        dr = path[i][0] - path[i-1][0]
+        dc = path[i][1] - path[i-1][1]
 
         key = map_delta_to_key(dr, dc)
 
         if key and key == last_key:
             count += 1
+
+            if i == steps - 1:
+                key_counts.append((last_key, count))
         else:
             if last_key is not None:
                 key_counts.append((last_key, count))
@@ -218,11 +213,11 @@ def update_global_map(global_map, new_walkable_map):
         # print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
         # print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
 
-        global_color = cv2.cvtColor(global_map, cv2.COLOR_GRAY2BGR)
-        cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
-        cv2.imshow("Overlap", global_color)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # global_color = cv2.cvtColor(global_map, cv2.COLOR_GRAY2BGR)
+        # cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
+        # cv2.imshow("Overlap", global_color)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # check if map size needs to be expanded
         expand_top = max(0, -start_y)
