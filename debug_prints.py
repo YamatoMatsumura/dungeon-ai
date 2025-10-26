@@ -18,26 +18,28 @@ def display_mask(window_name, boolean_array):
     cv2.imshow(window_name, boolean_array)
     cv2.waitKey(0)
 
-def display_poi_vectors(minimap_ss, room_vec_to_coord):
-    # display vectors
+def display_poi_vectors(minimap_ss, poi_vec_to_coord):
+    # get player xy
     height, width = minimap_ss.shape[:2]
-    player = [width // 2, height // 2]
+    player_x = width // 2
+    player_y = height // 2
 
-    room_vec_test = minimap_ss.copy()
+    minimap_ss_copy = minimap_ss.copy()
 
-    for vec in room_vec_to_coord.keys():
-        end_point = (int(player[0] + vec[0]), int(player[1] + vec[1]))  # adds vector to current player pos to turn into x,y coord
+    # draw each poi vector
+    for x, y in poi_vec_to_coord.keys():
+        end_point = (int(player_x + x), int(player_y + y))
 
         cv2.arrowedLine(
-            room_vec_test,
-            player,
+            minimap_ss_copy,
+            (player_x, player_y),
             end_point,
             color=(0,255,0),
             thickness=2,
             tipLength=0.2
         )
 
-    cv2.imshow("Room Vectors Test", room_vec_test)
+    cv2.imshow("POI Vectors", minimap_ss_copy)
     cv2.waitKey(0)
 
 def display_boss_heading(minimap_ss, boss_heading):

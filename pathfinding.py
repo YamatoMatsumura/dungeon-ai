@@ -15,9 +15,9 @@ def get_corridor_centroids(corridor_mask):
         M = cv2.moments(mask)
 
         if M["m00"] != 0:
-            cx = M["m10"] / M["m00"]
-            cy = M["m01"] / M["m00"]
-            centroids.append(np.array([cx, cy]))
+            center_x = M["m10"] / M["m00"]
+            center_y = M["m01"] / M["m00"]
+            centroids.append(np.array([center_x, center_y]))
 
     return centroids
 
@@ -37,9 +37,9 @@ def get_room_centroids(room_mask):
             M = cv2.moments(mask)
 
             if M["m00"] != 0:
-                cx = M["m10"] / M["m00"]
-                cy = M["m01"] / M["m00"]
-                centroids.append(np.array([cx, cy]))
+                center_x = M["m10"] / M["m00"]
+                center_y = M["m01"] / M["m00"]
+                centroids.append(np.array([center_x, center_y]))
 
     # # DEBUG: Draw red circle at centroids
     # # Draw centroids on top
@@ -53,16 +53,16 @@ def get_room_centroids(room_mask):
     
     return centroids
 
-def get_coord_vector_maps(centroids, minimap, coord_to_vec, vec_to_coord):
+def get_coord_vector_maps(poi_centers_xy, minimap, coord_to_vec, vec_to_coord):
     height, width = minimap.shape[:2]
-    player = np.array([width // 2, height // 2])
+    player_xy = np.array([width // 2, height // 2])
 
-    for center in centroids:
-        vec = center - player
+    for poi_xy in poi_centers_xy:
+        poi_vec_xy = poi_xy - player_xy
 
         # convert to tuple's to use as keys in dict
-        coord_tuple = tuple(center)
-        vec_tuple = tuple(vec)
+        coord_tuple = tuple(poi_xy)
+        vec_tuple = tuple(poi_vec_xy)
         
         coord_to_vec[coord_tuple] = vec_tuple
         vec_to_coord[vec_tuple] = coord_tuple
@@ -74,19 +74,19 @@ def get_boss_heading(game_ss):
     template = cv2.imread('sprites/boss_icon.png', cv2.IMREAD_GRAYSCALE)
 
     screen_height, screen_width = game_ss.shape[:2]
-    player = np.array([screen_width // 2, screen_height // 2])
+    player_xy = np.array([screen_width // 2, screen_height // 2])
 
     game_bgr = np.array(game_ss)[:,:,:3].copy()  # MSS gives a 4th alpha channel, so shrink this down to 3 channels
     game_gray = cv2.cvtColor(game_bgr, cv2.COLOR_BGR2GRAY)  # convert the 3 channels to grayscale
 
     result = cv2.matchTemplate(game_gray, template, cv2.TM_CCOEFF_NORMED)  
 
-    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+    _, max_val, _, max_loc_xy = cv2.minMaxLoc(result)
 
     template_height, template_width = template.shape
-    template_mid = np.array([max_loc[0] + template_width // 2, max_loc[1] + template_height // 2])
+    template_mid = np.array([max_loc_xy[0] + template_width // 2, max_loc_xy[1] + template_height // 2])
 
-    boss_heading_vec = template_mid - player
+    boss_heading_vec = template_mid - player_xy
 
     return boss_heading_vec
 
@@ -109,18 +109,46 @@ def get_shortest_path(walkable_mask_small, minimap_ss, scale, room_vec_to_coord,
     # establish cost array (walkable has cost 1, not walkable has cost 1000)
     cost_array = np.where(walkable_mask_small, 1, np.inf)
 
-
     height, width = minimap_ss.shape[:2]
-    player = (height // (2*scale), width // (2*scale))
+    player_rc = (height // (2*scale), width // (2*scale))
 
     # map room vec to room cord
-    best_room_x, best_room_y = room_vec_to_coord[tuple(best_room_vec)]
-    end = (int(best_room_y // scale), int(best_room_x // scale))
+    best_room_x, best_room_y = room_vec_to_coord[best_room_vec]
+    end_rc = (int(best_room_y // scale), int(best_room_x // scale))
+ 
+    # if not walkable_mask_small[end[0], end[1]]:
+    #     from scipy import ndimage
+    #     walkable_bool = (walkable_mask_small == 255)
+    #     dist, inds = ndimage.distance_transform_edt(walkable_bool, return_indices=True)
+        
 
+    #     print(walkable_bool[end[1]][end[0]])
+    #     print(walkable_bool[end[0], end[1]])
+
+    #     # inds gives the coordinates of the nearest True (walkable) pixel for every pixel
+    #     nearest_y = inds[0, end[0], end[1]]
+    #     nearest_x = inds[1, end[0], end[1]]
+    #     print(f"Adjusting end from {end} to {(nearest_y, nearest_x)}")
+    #     end = (nearest_y, nearest_x)
+
+    # import matplotlib.pyplot as plt
+    # vis = np.where(np.isinf(cost_array), np.nan, cost_array)
+
+    # plt.imshow(vis, cmap='gray', interpolation='nearest')
+    # plt.colorbar(label="Cost")
+    # plt.title("Cost Array Visualization")
+
+    # # optionally mark start and end points if you have them
+    # plt.scatter(player[1], player[0], c='lime', s=40, label='Start')
+    # plt.scatter(end[1], end[0], c='red', s=40, label='End')
+    # plt.legend()
+
+    # plt.show()
     try:
-        indices, cost = route_through_array(cost_array, start=player, end=end, fully_connected=False)
+        indices, cost = route_through_array(cost_array, start=player_rc, end=end_rc, fully_connected=False)
         return indices, cost
     except ValueError:
+        print("No path found")
         return None, None
 
 def map_delta_to_key(dr, dc):
@@ -138,12 +166,12 @@ def map_delta_to_key(dr, dc):
 def move_along_path(minimap, scale, indices, steps):
 
     height, width = minimap.shape[:2]
-    player = (height // (2*scale), width // (2*scale))
+    player_rc = (height // (2*scale), width // (2*scale))
 
     # Start at closest index player is at
     closest_index = min(
         range(len(indices)),
-        key=lambda i: math.dist(player, indices[i])
+        key=lambda i: math.dist(player_rc, indices[i])
     )
 
     # Make sure only going at max len(indices)
@@ -152,10 +180,10 @@ def move_along_path(minimap, scale, indices, steps):
 
     
     for i in range(1, steps):
-        target = indices[closest_index + i]
+        target_rc = indices[closest_index + i]
 
-        dr = target[0] - player[0]
-        dc = target[1] - player[1]
+        dr = target_rc[0] - player_rc[0]
+        dc = target_rc[1] - player_rc[1]
 
         key = map_delta_to_key(dr, dc)
 
@@ -164,7 +192,7 @@ def move_along_path(minimap, scale, indices, steps):
             time.sleep(0.00001)
             pydirectinput.keyUp(key)
         
-        player = (player[0] + dr, player[1] + dc)
+        player_rc = (player_rc[0] + dr, player_rc[1] + dc)
 
 def update_global_map(global_map, new_walkable_map):
     minimap_h, minimap_w = new_walkable_map.shape[:2]
@@ -189,6 +217,11 @@ def update_global_map(global_map, new_walkable_map):
         print(f"start_x: {start_x}")
         print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
         print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
+
+        cv2.rectangle(global_map, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
+        cv2.imshow("Overlap", global_map)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
         # check if map size needs to be expanded
         expand_top = max(0, -start_y)

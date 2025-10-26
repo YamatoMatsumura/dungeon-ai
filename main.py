@@ -40,7 +40,7 @@ while True:
     # debug.display_mask("Final Combined", combined_poi_mask)
 
     pathfinding.update_global_map(global_map, combined_poi_mask)
-    debug.display_mask("Global map", global_map)
+    # debug.display_mask("Global map", global_map)
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
     poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
@@ -66,16 +66,16 @@ while True:
     # add room centroids to vec coord mappings
     poi_coord_to_vec, poi_vec_to_coord = pathfinding.get_coord_vector_maps(room_centroids, minimap_ss, poi_coord_to_vec, poi_vec_to_coord)
     # DEBUG: Display poi vectors
-    # debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
+    debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
 
     boss_heading = pathfinding.get_boss_heading(game_ss)
     # # DEBUG: Display boss heading arrow
-    # debug.display_boss_heading(minimap_ss, boss_heading)
+    debug.display_boss_heading(minimap_ss, boss_heading)
 
     # find which room will get us to boss
     best_room_vec = pathfinding.get_best_room_heading(list(poi_vec_to_coord.keys()), boss_heading)
     # DEBUG: Display best room vector
-    # debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
+    debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
 
     eroded_walkable_mask = pathfinding.shrink_walkable_mask(walkable_mask)
     # DEBUG: Display before and after erode
@@ -88,16 +88,6 @@ while True:
     # DEBUG: display smaller map to double check resolution after shrinking
     # debug.display_mask("walkable_mask", walkable_mask)
     # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
-
-    # try:
-    #     # get shortest path to best room
-    #     path = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
-    #     # DEBUG: display map overlayed with shortest path
-    #     debug.display_shorest_path(walkable_mask_small, list(poi_coord_to_vec.keys()), scale, path)
-
-    #     pathfinding.move_along_path(minimap_ss, scale, path)
-    # except Exception as e:
-    #     print(f"Error: {e}")
 
     # get shortest path to best room
     path, cost = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
