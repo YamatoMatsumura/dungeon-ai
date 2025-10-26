@@ -4,6 +4,8 @@ from skimage.graph import route_through_array
 import pydirectinput
 import time
 import math
+from scipy import ndimage
+
 
 def get_corridor_centroids(corridor_mask):
     num_labels, labels = cv2.connectedComponents(corridor_mask, connectivity=4)
@@ -106,44 +108,29 @@ def shrink_walkable_mask(walkable_mask):
 
 def get_shortest_path(walkable_mask_small, minimap_ss, scale, room_vec_to_coord, best_room_vec):
 
-    # establish cost array (walkable has cost 1, not walkable has cost 1000)
+    # walkable_mask has 0 as unwalkable, 255 as walkable
+    # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
     cost_array = np.where(walkable_mask_small, 1, np.inf)
 
     height, width = minimap_ss.shape[:2]
     player_rc = (height // (2*scale), width // (2*scale))
 
-    # map room vec to room cord
     best_room_x, best_room_y = room_vec_to_coord[best_room_vec]
     end_rc = (int(best_room_y // scale), int(best_room_x // scale))
- 
-    # if not walkable_mask_small[end[0], end[1]]:
-    #     from scipy import ndimage
-    #     walkable_bool = (walkable_mask_small == 255)
-    #     dist, inds = ndimage.distance_transform_edt(walkable_bool, return_indices=True)
-        
 
-    #     print(walkable_bool[end[1]][end[0]])
-    #     print(walkable_bool[end[0], end[1]])
+    # check if current end point is unwalkable
+    if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
 
-    #     # inds gives the coordinates of the nearest True (walkable) pixel for every pixel
-    #     nearest_y = inds[0, end[0], end[1]]
-    #     nearest_x = inds[1, end[0], end[1]]
-    #     print(f"Adjusting end from {end} to {(nearest_y, nearest_x)}")
-    #     end = (nearest_y, nearest_x)
+        # Distance transform does closest zero element for every non-zero element
+        # Reverse our map since want closest walkable space(255) for every wall(0)
+        reversed_walkable = 255 - walkable_mask_small
+        dist, inds = ndimage.distance_transform_edt(reversed_walkable, return_indices=True)
 
-    # import matplotlib.pyplot as plt
-    # vis = np.where(np.isinf(cost_array), np.nan, cost_array)
+        # inds gives the coordinates of the nearest True (walkable) pixel for every pixel
+        nearest_r = inds[0, end_rc[0], end_rc[1]]
+        nearest_c = inds[1, end_rc[0], end_rc[1]]
+        end_rc = (nearest_r, nearest_c)
 
-    # plt.imshow(vis, cmap='gray', interpolation='nearest')
-    # plt.colorbar(label="Cost")
-    # plt.title("Cost Array Visualization")
-
-    # # optionally mark start and end points if you have them
-    # plt.scatter(player[1], player[0], c='lime', s=40, label='Start')
-    # plt.scatter(end[1], end[0], c='red', s=40, label='End')
-    # plt.legend()
-
-    # plt.show()
     try:
         indices, cost = route_through_array(cost_array, start=player_rc, end=end_rc, fully_connected=False)
         return indices, cost
@@ -213,15 +200,15 @@ def update_global_map(global_map, new_walkable_map):
 
         start_x, start_y = max_loc
     
-        print(f"start_y: {start_y}")
-        print(f"start_x: {start_x}")
-        print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
-        print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
+        # print(f"start_y: {start_y}")
+        # print(f"start_x: {start_x}")
+        # print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
+        # print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
 
-        cv2.rectangle(global_map, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
-        cv2.imshow("Overlap", global_map)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.rectangle(global_map, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
+        # cv2.imshow("Overlap", global_map)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # check if map size needs to be expanded
         expand_top = max(0, -start_y)
