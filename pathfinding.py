@@ -6,6 +6,7 @@ import time
 import math
 from scipy import ndimage
 
+import debug_prints as debug
 
 def get_corridor_centroids(corridor_mask):
     num_labels, labels = cv2.connectedComponents(corridor_mask, connectivity=4)
@@ -182,6 +183,9 @@ def move_along_path(minimap, scale, indices, steps):
         player_rc = (player_rc[0] + dr, player_rc[1] + dc)
 
 def update_global_map(global_map, new_walkable_map):
+
+    debug.display_mask("new_walkable", new_walkable_map)
+    
     minimap_h, minimap_w = new_walkable_map.shape[:2]
     global_h, global_w = global_map.shape[:2]
 
@@ -200,15 +204,18 @@ def update_global_map(global_map, new_walkable_map):
 
         start_x, start_y = max_loc
     
+        print(f"found match at: {max_loc}, confidence: {max_val}")
+        print(f"Normal start is: {start_x, start_y}")
         # print(f"start_y: {start_y}")
         # print(f"start_x: {start_x}")
         # print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
         # print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
 
-        # cv2.rectangle(global_map, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
-        # cv2.imshow("Overlap", global_map)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        global_color = cv2.cvtColor(global_map, cv2.COLOR_GRAY2BGR)
+        cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
+        cv2.imshow("Overlap", global_color)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
         # check if map size needs to be expanded
         expand_top = max(0, -start_y)
@@ -232,7 +239,15 @@ def update_global_map(global_map, new_walkable_map):
 
             global_map = new_global        
 
-        # combine global and new map where it best overlaps (np.maximum prioritizes walkable (255) over walls (0))
+
         region = global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w]
-        region = np.where(region == 0, 0, np.maximum(region, new_walkable_map))
-        global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = region
+        
+        # Create mask of true around player region
+        player_mask = np.zeros_like(region, dtype=bool)
+        minimap_center_h = minimap_h // 2
+        minimap_center_w = minimap_w // 2
+        player_mask[minimap_center_h - 14 : minimap_center_h + 14, minimap_center_w - 34 : minimap_center_w + 18] = True
+
+        # Around the player, always prefer what we had previously (since force fill walkable around player because of the arrow)
+        processed_region = np.where(player_mask, region, np.maximum(region, new_walkable_map))
+        global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = processed_region
