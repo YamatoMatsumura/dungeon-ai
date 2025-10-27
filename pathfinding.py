@@ -185,8 +185,6 @@ def move_along_path(path, steps):
         pydirectinput.keyUp(key)
 
 def update_global_map(global_map, new_walkable_map):
-
-    # debug.display_mask("new_walkable", new_walkable_map)
     
     minimap_h, minimap_w = new_walkable_map.shape[:2]
     global_h, global_w = global_map.shape[:2]
@@ -204,43 +202,7 @@ def update_global_map(global_map, new_walkable_map):
         result = cv2.matchTemplate(global_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
-        start_x, start_y = max_loc
-    
-        print(f"found match at: {max_loc}, confidence: {max_val}")
-        print(f"Normal start is: {start_x, start_y}")
-        # print(f"start_y: {start_y}")
-        # print(f"start_x: {start_x}")
-        # print(f"start_y + minimap_h - global_h: {start_y + minimap_h - global_h}")
-        # print(f"start_x + minimap_w - global_w: {start_x + minimap_w - global_w}")
-
-        # global_color = cv2.cvtColor(global_map, cv2.COLOR_GRAY2BGR)
-        # cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
-        # cv2.imshow("Overlap", global_color)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-
-        # check if map size needs to be expanded
-        expand_top = max(0, -start_y)
-        expand_left = max(0, -start_x)
-        expand_bottom = max(0, start_y + minimap_h - global_h)
-        expand_right = max(0, start_x + minimap_w - global_w)
-
-        if any([expand_top, expand_left, expand_bottom, expand_right]):
-            print("Map size changed!")
-            input()
-            new_h = global_h + expand_top + expand_bottom
-            new_w = global_w + expand_left + expand_right
-
-            # copy over old map
-            new_global = np.zeroes((new_h, new_w), dtype=global_map.dtype)
-            new_global[expand_top:expand_top+global_h, expand_left:expand_left+global_w] = global_map
-
-            # adjust start x and y in cases where needs more space in left or top
-            start_x += expand_left
-            start_y += expand_top
-
-            global_map = new_global        
-
+        start_x, start_y = max_loc    
 
         region = global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w]
         
@@ -248,8 +210,69 @@ def update_global_map(global_map, new_walkable_map):
         player_mask = np.zeros_like(region, dtype=bool)
         minimap_center_h = minimap_h // 2
         minimap_center_w = minimap_w // 2
-        player_mask[minimap_center_h - 14 : minimap_center_h + 14, minimap_center_w - 34 : minimap_center_w + 18] = True
+        player_mask[minimap_center_h - 34 : minimap_center_h + 18, minimap_center_w - 14 : minimap_center_w + 14] = True
 
         # Around the player, always prefer what we had previously (since force fill walkable around player because of the arrow)
+        # debug.display_mask("previous region in global", region)
         processed_region = np.where(player_mask, region, np.maximum(region, new_walkable_map))
+
+        if max_val < 0.85:
+            print(f"Bad confidence, skipping...")
+
+            # Compute rectangle coordinates from player_mask
+            rows, cols = np.where(player_mask)
+            top_left = (cols.min(), rows.min())        # (x, y)
+            bottom_right = (cols.max(), rows.max())    # (x, y)
+
+            # Make copies for visualization (so you don't modify actual mask)
+            region_before = cv2.cvtColor(region.copy(), cv2.COLOR_GRAY2BGR)
+            region_after = cv2.cvtColor(processed_region.copy(), cv2.COLOR_GRAY2BGR)
+            new_walkable = cv2.cvtColor(new_walkable_map.copy(), cv2.COLOR_GRAY2BGR)
+
+            global_color = cv2.cvtColor(global_map.copy(), cv2.COLOR_GRAY2BGR)
+            cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
+
+            # Draw red rectangle (BGR: 0,0,255)
+            cv2.rectangle(region_before, top_left, bottom_right, color=(0,0,255), thickness=1)
+            cv2.rectangle(region_after, top_left, bottom_right, color=(0,0,255), thickness=1)
+            cv2.rectangle(new_walkable, top_left, bottom_right, color=(0,0,255), thickness=1)
+            # Display
+            cv2.imshow("BAD Stuff previously in Global", region_before)
+            cv2.imshow("BAD New walkable map", new_walkable)
+            cv2.imshow("BAD Placing new walkable here on global", global_color)
+            cv2.imshow("BAD Combined with new map info", region_after)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            return
+
+        # add new processed region to our global map
         global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = processed_region
+
+
+        buffer_h, buffer_w = minimap_h, minimap_w
+
+        # check if we have one buffer size amount of space around box starting at start_y, startx
+        expand_top = max(0, buffer_h - start_y)
+        expand_left = max(0, buffer_w - start_x)
+        expand_bottom = max(0, start_y + minimap_h + buffer_h - global_h)
+        expand_right = max(0, start_x + minimap_w +buffer_w - global_w)
+
+        if any([expand_top, expand_left, expand_bottom, expand_right]):
+
+            # expand by one buffer size in direction needed
+            expand_top_height = (buffer_h if expand_top > 0 else 0)
+            expand_bottom_height = (buffer_h if expand_bottom > 0 else 0)
+            expand_left_height = (buffer_w if expand_left > 0 else 0)
+            expand_right_height = (buffer_w if expand_right > 0 else 0)
+
+            new_h = global_h + expand_top_height + expand_bottom_height
+            new_w = global_w + expand_left_height + expand_right_height
+
+            # copy over old map
+            new_global = np.zeros((new_h, new_w), dtype=global_map.dtype)
+            new_global[expand_top_height:expand_top_height+global_h, expand_left_height:expand_left_height+global_w] = global_map
+
+            print(f"Expanded map from {global_map.shape} to {new_global.shape}")
+            global_map = new_global
+
+    return global_map
