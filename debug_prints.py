@@ -86,7 +86,7 @@ def display_ideal_room(minimap_ss, centroids, best_room_vec):
     cv2.waitKey(0)
 
 def resize_print(img, scale):
-    return cv2.resize(img, (img.shape[1]*scale, img.shape[0]*scale), interpolation=cv2.INTER_NEAREST)
+    return cv2.resize(img, (int(img.shape[1]*scale), int(img.shape[0]*scale)), interpolation=cv2.INTER_NEAREST)
 
 def display_shorest_path(walkable_tiles_small, centroids, scale, indices):
     plt.imshow(walkable_tiles_small, cmap="gray")
