@@ -93,14 +93,15 @@ def get_boss_heading(game_ss):
 
     return boss_heading_vec
 
-def get_best_room_heading(room_vectors, boss_heading):
+def get_next_heading(room_vectors, boss_heading, i):
 
     # If no rooms seen, run towards boss
     if len(room_vectors) == 0:
         return boss_heading
 
     dots = [np.dot(r/np.linalg.norm(r), boss_heading) for r in room_vectors]
-    return room_vectors[np.argmax(dots)]
+    dots = np.argsort(dots)[::-1]
+    return room_vectors[dots[i]]
 
 def shrink_walkable_mask(walkable_mask):
     kernel = np.ones((5, 5), np.uint8)
@@ -117,7 +118,9 @@ def get_shortest_path(walkable_mask_small, minimap_ss, scale, room_vec_to_coord,
     player_rc = (height // (2*scale), width // (2*scale))
 
     best_room_x, best_room_y = room_vec_to_coord[best_room_vec]
-    end_rc = (int(best_room_y // scale), int(best_room_x // scale))
+    end_rc = (int(best_room_y // scale) - 1, int(best_room_x // scale) - 1)
+
+    debug.display_pathfinding(walkable_mask_small, cost_array, player_rc, end_rc)
 
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
@@ -217,7 +220,7 @@ def update_global_map(global_map, new_walkable_map):
         processed_region = np.where(player_mask, region, np.maximum(region, new_walkable_map))
 
         if max_val < 0.85:
-            print(f"Bad confidence, skipping...")
+            print(f"Confidence of {max_val}, skipping...")
 
             # Compute rectangle coordinates from player_mask
             rows, cols = np.where(player_mask)
@@ -243,7 +246,7 @@ def update_global_map(global_map, new_walkable_map):
             cv2.imshow("BAD Combined with new map info", region_after)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-            return
+            return global_map
 
         # add new processed region to our global map
         global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = processed_region
@@ -251,7 +254,7 @@ def update_global_map(global_map, new_walkable_map):
 
         buffer_h, buffer_w = minimap_h, minimap_w
 
-        # check if we have one buffer size amount of space around box starting at start_y, startx
+        # check if we have one buffer size amount of space around box starting at start_y, start_x
         expand_top = max(0, buffer_h - start_y)
         expand_left = max(0, buffer_w - start_x)
         expand_bottom = max(0, start_y + minimap_h + buffer_h - global_h)

@@ -73,30 +73,31 @@ while True:
     # # DEBUG: Display boss heading arrow
     # debug.display_boss_heading(minimap_ss, boss_heading)
 
-    # find which room will get us to boss
-    best_room_vec = pathfinding.get_best_room_heading(list(poi_vec_to_coord.keys()), boss_heading)
-    # DEBUG: Display best room vector
-    # debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
+    # loop over options in case one poi is unreachable right now
+    for i in range(len(poi_coord_to_vec)):
 
-    # eroded_walkable_mask = pathfinding.shrink_walkable_mask(walkable_mask)
-    # DEBUG: Display before and after erode
-    # debug.display_mask("Before erode", walkable_mask)
-    # debug.display_mask("After Erode", eroded_walkable_mask)
+        # find next best room heading
+        best_room_vec = pathfinding.get_next_heading(list(poi_vec_to_coord.keys()), boss_heading, i)
+        # DEBUG: Display best room vector
+        # debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
 
-    # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
-    scale = 5
-    walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=scale)
-    # DEBUG: display smaller map to double check resolution after shrinking
-    # debug.display_mask("walkable_mask", walkable_mask)
-    # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
+        # eroded_walkable_mask = pathfinding.shrink_walkable_mask(walkable_mask)
+        # DEBUG: Display before and after erode
+        # debug.display_mask("Before erode", walkable_mask)
+        # debug.display_mask("After Erode", eroded_walkable_mask)
 
-    # get shortest path to best room
-    path, cost = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
+        # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
+        scale = 5
+        walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=scale)
+        # DEBUG: display smaller map to double check resolution after shrinking
+        # debug.display_mask("walkable_mask", walkable_mask)
+        # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
 
-    if cost is None:
-        debug.display_mask("stuck!!", walkable_mask)
-        print("No path Found...retrying...")
-    else:
-        # DEBUG: display map overlayed with shortest path
-        # debug.display_shorest_path(walkable_mask_small, list(poi_coord_to_vec.keys()), scale, path)
-        pathfinding.move_along_path(path, steps=12)
+        # get shortest path to best room
+        path, cost = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
+
+        if cost is not None:
+            pathfinding.move_along_path(path, steps=12)
+            break
+        elif i == len(poi_coord_to_vec) - 1:
+            debug.display_mask("totally stuck!!", debug.resize_print(walkable_mask_small, 5))
