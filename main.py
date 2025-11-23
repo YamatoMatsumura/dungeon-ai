@@ -7,6 +7,8 @@ import color_mask as mask
 import pathfinding
 import debug_prints as debug
 
+import cv2
+
 time.sleep(2)
 
 global_map = np.zeros((1000, 1000), dtype=np.uint8)
@@ -39,8 +41,8 @@ while True:
     # DEBUG: Show final mask
     # debug.display_mask("Final Combined", combined_poi_mask)
 
-    # update the global map with this new map
-    global_map = pathfinding.update_global_map(global_map, combined_poi_mask)
+    # add new mask to walkable map, as well as update the combined poi mask to handle player arrow
+    global_map, combined_poi_mask = pathfinding.parse_new_map(global_map, combined_poi_mask)
     debug.display_mask("Global map", debug.resize_print(global_map, 0.5))
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
@@ -70,7 +72,7 @@ while True:
     # debug.display_poi_vectors(minimap_ss, poi_vec_to_coord)
 
     boss_heading = pathfinding.get_boss_heading(game_ss)
-    # # DEBUG: Display boss heading arrow
+    # DEBUG: Display boss heading arrow
     # debug.display_boss_heading(minimap_ss, boss_heading)
 
     # loop over options in case one poi is unreachable right now

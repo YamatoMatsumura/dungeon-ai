@@ -104,8 +104,8 @@ def display_pathfinding(walkable_mask_small, cost_array, player_rc, end_rc):
     debug_map_color = cv2.cvtColor(debug_map, cv2.COLOR_GRAY2BGR)
 
     # Draw start (green) and end (red)
-    cv2.circle(debug_map_color, (player_rc[1], player_rc[0]), 3, (0, 255, 0), -1)
-    cv2.circle(debug_map_color, (end_rc[1], end_rc[0]), 3, (0, 0, 255), -1)
+    cv2.circle(debug_map_color, (player_rc[1], player_rc[0]), 1, (0, 255, 0), -1)
+    cv2.circle(debug_map_color, (end_rc[1], end_rc[0]), 1, (0, 0, 255), -1)
 
     # Show result
     cv2.imshow("Path Debug", resize_print(debug_map_color, 5))
