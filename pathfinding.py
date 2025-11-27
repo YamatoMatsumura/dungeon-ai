@@ -24,13 +24,12 @@ def get_corridor_center_xy(corridor_mask):
 
     return centroids
 
-def get_room_center_xy(room_mask):
+def get_room_center_xy(room_mask, player_rc):
     # get connected components
     num_labels, labels = cv2.connectedComponents(room_mask, connectivity=4)
 
     # get center point to filter out spawn centroid
-    height, width = room_mask.shape[:2]
-    spawn_label = labels[height // 2, width // 2]
+    spawn_label = labels[player_rc[0], player_rc[1]]
 
     centroids = []
     for label in range(1, num_labels):
@@ -56,28 +55,9 @@ def get_room_center_xy(room_mask):
     
     return centroids
 
-def get_coord_vector_maps(poi_centers_xy, minimap, coord_to_vec, vec_to_coord):
-    height, width = minimap.shape[:2]
-    player_xy = np.array([width // 2, height // 2])
 
-    for poi_xy in poi_centers_xy:
-        poi_vec_xy = poi_xy - player_xy
-
-        # convert to tuple's to use as keys in dict
-        coord_tuple = tuple(poi_xy)
-        vec_tuple = tuple(poi_vec_xy)
-        
-        coord_to_vec[coord_tuple] = vec_tuple
-        vec_to_coord[vec_tuple] = coord_tuple
-        # room_vec = room_vec / np.linalg.norm(room_vec)
-    
-    return coord_to_vec, vec_to_coord
-
-def get_boss_heading(game_ss):
+def get_boss_heading_xy(game_ss, player_xy):
     template = cv2.imread('sprites/boss_icon.png', cv2.IMREAD_GRAYSCALE)
-
-    screen_height, screen_width = game_ss.shape[:2]
-    player_xy = np.array([screen_width // 2, screen_height // 2])
 
     game_bgr = np.array(game_ss)[:,:,:3].copy()  # MSS gives a 4th alpha channel, so shrink this down to 3 channels
     game_gray = cv2.cvtColor(game_bgr, cv2.COLOR_BGR2GRAY)  # convert the 3 channels to grayscale
@@ -110,26 +90,11 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
     # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
     cost_array = np.where(walkable_mask_small, 1, np.inf)
 
-    # height, width = minimap_ss.shape[:2]
-    # player_rc = (height // (2*scale), width // (2*scale))
-
-    # best_room_x, best_room_y = best_room_coord
-    # end_rc = (int(best_room_y // scale) - 1, int(best_room_x // scale) - 1)
     debug.display_pathfinding(walkable_mask_small, cost_array, start_rc, end_rc)
 
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
         end_rc = get_nearest_walkable_rc(walkable_mask_small, end_rc)
-
-        # # Distance transform does closest zero element for every non-zero element
-        # # Reverse our map since want closest walkable space(255) for every wall(0)
-        # reversed_walkable = 255 - walkable_mask_small
-        # dist, inds = ndimage.distance_transform_edt(reversed_walkable, return_indices=True)
-
-        # # inds gives the coordinates of the nearest True (walkable) pixel for every pixel
-        # nearest_r = inds[0, end_rc[0], end_rc[1]]
-        # nearest_c = inds[1, end_rc[0], end_rc[1]]
-        # end_rc = (nearest_r, nearest_c)
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=False)
@@ -167,7 +132,6 @@ def move_along_path(path, steps):
     # Make sure only going at max len(path)
     if steps > len(path):
         steps = len(path)
-    
     
     key_counts = []
     last_key = None

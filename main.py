@@ -19,6 +19,9 @@ while True:
         minimap_region = {"top": 5, "left": 2032, "width": 522, "height": 533}
         minimap_ss = np.array(sct.grab(minimap_region))
 
+        CENTER_RC = pathfinding.get_center_rc(minimap_ss)
+        CENTER_XY = pathfinding.get_center_xy(minimap_ss)
+
         # get game window screenshot
         game_region = {"top": 0, "left": 0, "width": 2025, "height": 1600}
         game_ss = np.array(sct.grab(game_region))
@@ -51,7 +54,8 @@ while True:
     #     debug.display_mask(mask_name, poi_mask)
 
     # filter down poi's to ones that are reachable from current pos
-    walkable_mask, walkable_poi_mask = mask.get_walkable_pois(combined_poi_mask, poi_masks)
+
+    walkable_mask, walkable_poi_mask = mask.get_walkable_pois(combined_poi_mask, poi_masks, CENTER_RC)
     # DEBUG: display walkable masks
     # debug.display_mask("walkable_map", walkable_mask)
     # for mask_name, poi_mask in walkable_poi_mask.items():
@@ -61,43 +65,41 @@ while True:
     if np.all(walkable_mask == 0):
 
         # get the nearest walkable spot from current player position
-        center_row, center_col = pathfinding.get_center_rc(minimap_ss)
-        nearest_walkable_rc = pathfinding.get_nearest_walkable_rc(combined_poi_mask, start_rc=(center_row, center_col))
+        nearest_walkable_rc = pathfinding.get_nearest_walkable_rc(combined_poi_mask, start_rc=CENTER_RC)
 
         map_small = mask.downsample_mask(combined_poi_mask, MAP_SHRINK_SCALE)
         map_small[:, :] = 255  # convert map to all walkable
 
         path, cost = pathfinding.get_shortest_path(
             map_small, 
-            start_rc=pathfinding.downscale_pt((center_row, center_col), MAP_SHRINK_SCALE), 
+            start_rc=pathfinding.downscale_pt(CENTER_RC, MAP_SHRINK_SCALE), 
             end_rc=pathfinding.downscale_pt(nearest_walkable_rc, MAP_SHRINK_SCALE)
         )
         pathfinding.move_along_path(path, steps=12)
 
     poi_pts_xy = []
     poi_pts_xy.extend(pathfinding.get_corridor_center_xy(walkable_poi_mask["bridge/room"]))
-    poi_pts_xy.extend(pathfinding.get_room_center_xy(walkable_poi_mask["room"]))
+    poi_pts_xy.extend(pathfinding.get_room_center_xy(walkable_poi_mask["room"], CENTER_RC))
 
 
-    boss_heading = pathfinding.get_boss_heading(game_ss)
+    boss_heading_xy = pathfinding.get_boss_heading_xy(game_ss, CENTER_XY)
     # DEBUG: Display boss heading arrow
-    debug.display_boss_heading(minimap_ss, boss_heading)
+    # debug.display_boss_heading(minimap_ss, boss_heading_xy)
 
     # convert poi pts to vecs
-    center = pathfinding.get_center_xy(minimap_ss)
     poi_vec_xy = []
     for pt in poi_pts_xy:
-        poi_vec_xy.append(pathfinding.convert_pt_to_vec(pt, center))
+        poi_vec_xy.append(pathfinding.convert_pt_to_vec(pt, CENTER_XY))
     # DEBUG: Display poi vectors
-    debug.display_poi_vectors(minimap_ss, poi_vec_xy)
+    # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
     # loop over options in case one poi is unreachable right now
     for i in range(len(poi_pts_xy)):
 
         # find next best room heading
-        best_poi_vec_xy = pathfinding.get_next_heading(poi_vec_xy, boss_heading, i)
+        best_poi_vec_xy = pathfinding.get_next_heading(poi_vec_xy, boss_heading_xy, i)
         # DEBUG: Display best room vector
-        debug.display_ideal_room(minimap_ss, poi_vec_xy, best_poi_vec_xy)
+        # debug.display_ideal_room(minimap_ss, poi_vec_xy, best_poi_vec_xy)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
         walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=MAP_SHRINK_SCALE)
@@ -106,15 +108,14 @@ while True:
         # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
 
         # convert next heading vec xy to pt
-        center = pathfinding.get_center_xy(minimap_ss)
-        best_poi_pts_xy = pathfinding.convert_vec_to_pt(best_poi_vec_xy, center)
+        best_poi_pts_xy = pathfinding.convert_vec_to_pt(best_poi_vec_xy, CENTER_XY)
 
         # downscale pt to match smaller map indices
         best_poi_pts_rc = pathfinding.swap_pt_xy_rc(best_poi_pts_xy)
     
         path, cost = pathfinding.get_shortest_path(
             walkable_mask_small, 
-            start_rc=pathfinding.downscale_pt(center, MAP_SHRINK_SCALE), 
+            start_rc=pathfinding.downscale_pt(CENTER_RC, MAP_SHRINK_SCALE), 
             end_rc=pathfinding.downscale_pt(best_poi_pts_rc, MAP_SHRINK_SCALE)
         )
 

@@ -62,13 +62,13 @@ def get_room_mask(combined_poi_mask):
 
     return room_mask
 
-def get_walkable_pois(combined_poi_mask, poi_masks):
+def get_walkable_pois(combined_poi_mask, poi_masks, player_rc):
 
     # get connected component that is walkable (i.e. the one player is currently located in)
     num_labels, labels = cv2.connectedComponents(combined_poi_mask, connectivity=4)
     
-    center_row, center_col = combined_poi_mask.shape[0] // 2, combined_poi_mask.shape[1] // 2
-    center_label = labels[center_row, center_col]
+    player_r, player_c = player_rc
+    center_label = labels[player_r, player_c]
 
     # create overall walkable mask
     walkable_mask = np.zeros_like(labels, dtype=np.uint8)
