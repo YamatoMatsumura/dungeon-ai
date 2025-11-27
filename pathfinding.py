@@ -108,39 +108,51 @@ def shrink_walkable_mask(walkable_mask):
     eroded_walkable_mask = cv2.erode(walkable_mask, kernel)
     return eroded_walkable_mask
 
-def get_shortest_path(walkable_mask_small, minimap_ss, scale, room_vec_to_coord, best_room_vec):
+def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     # walkable_mask has 0 as unwalkable, 255 as walkable
     # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
     cost_array = np.where(walkable_mask_small, 1, np.inf)
 
-    height, width = minimap_ss.shape[:2]
-    player_rc = (height // (2*scale), width // (2*scale))
+    # height, width = minimap_ss.shape[:2]
+    # player_rc = (height // (2*scale), width // (2*scale))
 
-    best_room_x, best_room_y = room_vec_to_coord[best_room_vec]
-    end_rc = (int(best_room_y // scale) - 1, int(best_room_x // scale) - 1)
-
-    debug.display_pathfinding(walkable_mask_small, cost_array, player_rc, end_rc)
+    # best_room_x, best_room_y = best_room_coord
+    # end_rc = (int(best_room_y // scale) - 1, int(best_room_x // scale) - 1)
+    debug.display_pathfinding(walkable_mask_small, cost_array, start_rc, end_rc)
 
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
+        end_rc = get_nearest_walkable(walkable_mask_small, end_rc)
 
-        # Distance transform does closest zero element for every non-zero element
-        # Reverse our map since want closest walkable space(255) for every wall(0)
-        reversed_walkable = 255 - walkable_mask_small
-        dist, inds = ndimage.distance_transform_edt(reversed_walkable, return_indices=True)
+        # # Distance transform does closest zero element for every non-zero element
+        # # Reverse our map since want closest walkable space(255) for every wall(0)
+        # reversed_walkable = 255 - walkable_mask_small
+        # dist, inds = ndimage.distance_transform_edt(reversed_walkable, return_indices=True)
 
-        # inds gives the coordinates of the nearest True (walkable) pixel for every pixel
-        nearest_r = inds[0, end_rc[0], end_rc[1]]
-        nearest_c = inds[1, end_rc[0], end_rc[1]]
-        end_rc = (nearest_r, nearest_c)
+        # # inds gives the coordinates of the nearest True (walkable) pixel for every pixel
+        # nearest_r = inds[0, end_rc[0], end_rc[1]]
+        # nearest_c = inds[1, end_rc[0], end_rc[1]]
+        # end_rc = (nearest_r, nearest_c)
 
     try:
-        indices, cost = route_through_array(cost_array, start=player_rc, end=end_rc, fully_connected=False)
+        indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=False)
         return indices, cost
     except ValueError:
         print("No path found")
         return None, None
+
+def get_nearest_walkable(mask, target_rc):
+    # Distance transform does closest zero element for every non-zero element
+    # Reverse map since want closest walkable space(255) for every wall(0)
+    reversed_mask = 255 - mask
+    dist, inds = ndimage.distance_transform_edt(reversed_mask, return_indices = True)
+
+    nearest_r = inds[0, target_rc[0], target_rc[1]]
+    nearest_c = inds[1, target_rc[0], target_rc[1]]
+
+    nearest_coord = np.array([nearest_r, nearest_c])
+    return nearest_coord
 
 def map_delta_to_key(dr, dc):
     if dr == -1 and dc == 0:
@@ -187,7 +199,7 @@ def move_along_path(path, steps):
         time.sleep(count*KEY_TIME_MULT)
         pydirectinput.keyUp(key)
 
-def update_global_map(global_map, new_walkable_map):
+def parse_new_map(global_map, new_walkable_map):
     
     minimap_h, minimap_w = new_walkable_map.shape[:2]
     global_h, global_w = global_map.shape[:2]
@@ -200,6 +212,8 @@ def update_global_map(global_map, new_walkable_map):
 
         # add walkable map to center
         global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = new_walkable_map
+
+        return global_map, new_walkable_map
 
     else:
         result = cv2.matchTemplate(global_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
@@ -278,4 +292,10 @@ def update_global_map(global_map, new_walkable_map):
             print(f"Expanded map from {global_map.shape} to {new_global.shape}")
             global_map = new_global
 
-    return global_map
+    return global_map, processed_region
+
+def get_center_rc(map):
+    return np.array([map.shape[0] // 2, map.shape[1] // 2])
+
+def get_center_xy(map):
+    return np.array([map.shape[1] // 2, map.shape[0] // 2])

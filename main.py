@@ -7,11 +7,10 @@ import color_mask as mask
 import pathfinding
 import debug_prints as debug
 
-import cv2
-
 time.sleep(2)
 
 global_map = np.zeros((1000, 1000), dtype=np.uint8)
+MAP_SHRINK_SCALE = 5
 while True:
 
     with mss.mss() as sct:
@@ -58,6 +57,22 @@ while True:
     # for mask_name, poi_mask in walkable_poi_mask.items():
     #     debug.display_mask(f"{mask_name}_walkable", poi_mask)
 
+    # check if no walkable spaces
+    if np.all(walkable_mask == 0):
+        print("Found no walkable")
+        center_row, center_col = combined_poi_mask.shape[0] // 2, combined_poi_mask.shape[1] // 2
+        nearest_walkable_rc = pathfinding.get_nearest_walkable(combined_poi_mask, (center_row, center_col))
+
+        map_small = mask.downsample_mask(combined_poi_mask, MAP_SHRINK_SCALE)
+        map_small[:, :] = 255
+        start_rc = (center_row // MAP_SHRINK_SCALE, center_col // MAP_SHRINK_SCALE)
+        nearest_walkable_rc = (nearest_walkable_rc[0] // MAP_SHRINK_SCALE, nearest_walkable_rc[1] // MAP_SHRINK_SCALE)
+        path, cost = pathfinding.get_shortest_path(map_small, start_rc=start_rc, end_rc=nearest_walkable_rc)
+        if cost is not None:
+            pathfinding.move_along_path(path, steps=12)
+        elif i == len(poi_coord_to_vec) - 1:
+            debug.display_mask("totally stuck!!", debug.resize_print(walkable_mask_small, 5))
+
     corridor_centroids = pathfinding.get_corridor_centroids(walkable_poi_mask["bridge/room"])
     room_centroids = pathfinding.get_room_centroids(walkable_poi_mask["room"])
 
@@ -89,14 +104,16 @@ while True:
         # debug.display_mask("After Erode", eroded_walkable_mask)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
-        scale = 5
-        walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=scale)
+        walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=MAP_SHRINK_SCALE)
         # DEBUG: display smaller map to double check resolution after shrinking
         # debug.display_mask("walkable_mask", walkable_mask)
         # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
 
         # get shortest path to best room
-        path, cost = pathfinding.get_shortest_path(walkable_mask_small, minimap_ss, scale, poi_vec_to_coord, best_room_vec)
+        best_room_coord = poi_vec_to_coord[best_room_vec]
+        adjusted_end_rc = (int(best_room_coord[1] // MAP_SHRINK_SCALE), int(best_room_coord[0] // MAP_SHRINK_SCALE))
+        start_rc = (walkable_mask_small.shape[0] // 2, walkable_mask_small.shape[1] // 2)
+        path, cost = pathfinding.get_shortest_path(walkable_mask_small, start_rc=start_rc, end_rc=adjusted_end_rc)
 
         if cost is not None:
             pathfinding.move_along_path(path, steps=12)
