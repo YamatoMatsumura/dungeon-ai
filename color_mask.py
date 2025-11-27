@@ -70,6 +70,8 @@ def get_walkable_pois(combined_poi_mask, poi_masks):
     center_row, center_col = combined_poi_mask.shape[0] // 2, combined_poi_mask.shape[1] // 2
     center_label = labels[center_row, center_col]
 
+    # create overall walkable mask
+    walkable_mask = np.zeros_like(labels, dtype=np.uint8)
     for label in range(1, num_labels):
         if center_label == label:
             walkable_mask = ((labels == label).astype(np.uint8))*255
