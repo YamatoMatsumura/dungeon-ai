@@ -103,10 +103,6 @@ def get_next_heading(room_vectors, boss_heading, i):
     dots = np.argsort(dots)[::-1]
     return room_vectors[dots[i]]
 
-def shrink_walkable_mask(walkable_mask):
-    kernel = np.ones((5, 5), np.uint8)
-    eroded_walkable_mask = cv2.erode(walkable_mask, kernel)
-    return eroded_walkable_mask
 
 def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 

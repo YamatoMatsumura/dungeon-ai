@@ -98,10 +98,6 @@ while True:
         # DEBUG: Display best room vector
         # debug.display_ideal_room(minimap_ss, list(poi_coord_to_vec.keys()), best_room_vec)
 
-        # eroded_walkable_mask = pathfinding.shrink_walkable_mask(walkable_mask)
-        # DEBUG: Display before and after erode
-        # debug.display_mask("Before erode", walkable_mask)
-        # debug.display_mask("After Erode", eroded_walkable_mask)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
         walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=MAP_SHRINK_SCALE)
