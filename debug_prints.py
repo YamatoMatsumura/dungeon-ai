@@ -20,7 +20,7 @@ def display_mask(window_name, boolean_array):
     cv2.imshow(window_name, boolean_array)
     cv2.waitKey(0)
 
-def display_poi_vectors(minimap_ss, poi_vec_to_coord):
+def display_poi_vectors(minimap_ss, poi_vec_xy):
     # get player xy
     height, width = minimap_ss.shape[:2]
     player_x = width // 2
@@ -29,7 +29,7 @@ def display_poi_vectors(minimap_ss, poi_vec_to_coord):
     minimap_ss_copy = minimap_ss.copy()
 
     # draw each poi vector
-    for x, y in poi_vec_to_coord.keys():
+    for x, y in poi_vec_xy:
         end_point = (int(player_x + x), int(player_y + y))
 
         cv2.arrowedLine(

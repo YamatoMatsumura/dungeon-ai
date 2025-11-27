@@ -8,7 +8,7 @@ from scipy import ndimage
 
 import debug_prints as debug
 
-def get_corridor_centroids(corridor_mask):
+def get_corridor_center_xy(corridor_mask):
     num_labels, labels = cv2.connectedComponents(corridor_mask, connectivity=4)
 
     centroids = []
@@ -24,7 +24,7 @@ def get_corridor_centroids(corridor_mask):
 
     return centroids
 
-def get_room_centroids(room_mask):
+def get_room_center_xy(room_mask):
     # get connected components
     num_labels, labels = cv2.connectedComponents(room_mask, connectivity=4)
 
@@ -119,7 +119,7 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
-        end_rc = get_nearest_walkable(walkable_mask_small, end_rc)
+        end_rc = get_nearest_walkable_rc(walkable_mask_small, end_rc)
 
         # # Distance transform does closest zero element for every non-zero element
         # # Reverse our map since want closest walkable space(255) for every wall(0)
@@ -138,14 +138,14 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
         print("No path found")
         return None, None
 
-def get_nearest_walkable(mask, target_rc):
+def get_nearest_walkable_rc(mask, start_rc):
     # Distance transform does closest zero element for every non-zero element
     # Reverse map since want closest walkable space(255) for every wall(0)
     reversed_mask = 255 - mask
     dist, inds = ndimage.distance_transform_edt(reversed_mask, return_indices = True)
 
-    nearest_r = inds[0, target_rc[0], target_rc[1]]
-    nearest_c = inds[1, target_rc[0], target_rc[1]]
+    nearest_r = inds[0, start_rc[0], start_rc[1]]
+    nearest_c = inds[1, start_rc[0], start_rc[1]]
 
     nearest_coord = np.array([nearest_r, nearest_c])
     return nearest_coord
@@ -295,3 +295,15 @@ def get_center_rc(map):
 
 def get_center_xy(map):
     return np.array([map.shape[1] // 2, map.shape[0] // 2])
+
+def downscale_pt(pt, scale):
+    return (int(pt[0] // scale), int(pt[1] // scale))
+
+def convert_pt_to_vec(pt, center):
+    return pt - center
+
+def convert_vec_to_pt(vec, center):
+    return vec + center
+
+def swap_pt_xy_rc(pt):
+    return (pt[1], pt[0])
