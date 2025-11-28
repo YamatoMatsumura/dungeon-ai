@@ -115,6 +115,6 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
     cv2.circle(debug_map_color, (end_rc[1], end_rc[0]), 3, (0, 0, 255), -1)
 
     # Show result
-    cv2.imshow("path", debug_map_color)
+    cv2.imshow("path", resize_print(debug_map_color, 2))
     cv2.waitKey(0)
     cv2.destroyAllWindows()

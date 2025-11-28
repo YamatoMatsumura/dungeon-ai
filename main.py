@@ -1,5 +1,8 @@
 import mss
 import numpy as np
+from scipy import stats
+import cv2
+from scipy.stats import mode
 
 import time  # to delay screenshot
 
@@ -10,7 +13,7 @@ import debug_prints as debug
 time.sleep(2)
 
 global_map = np.zeros((1000, 1000), dtype=np.uint8)
-MAP_SHRINK_SCALE = 1
+MAP_SHRINK_SCALE = 2
 
 pathfinding.initialize_pixels_per_step()
 pathfinding.check_min_duration()
@@ -48,11 +51,11 @@ while True:
 
     # add new mask to walkable map, as well as update the combined poi mask to handle player arrow
     global_map, combined_poi_mask = pathfinding.parse_new_map(global_map, combined_poi_mask)
-    debug.display_mask("Global map", debug.resize_print(global_map, 0.5))
+    # debug.display_mask("Global map", debug.resize_print(global_map, 0.5))
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
     poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
-    # DEBUG: print out all poi masks
+    # # DEBUG: print out all poi masks
     # for mask_name, poi_mask in poi_masks.items():
     #     debug.display_mask(mask_name, poi_mask)
 
@@ -104,7 +107,7 @@ while True:
         # debug.display_ideal_room(minimap_ss, poi_vec_xy, best_poi_vec_xy)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
-        walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=MAP_SHRINK_SCALE)
+        walkable_mask_small = mask.downsample_mask(walkable_mask, MAP_SHRINK_SCALE)
         # DEBUG: display smaller map to double check resolution after shrinking
         # debug.display_mask("walkable_mask", walkable_mask)
         # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, MAP_SHRINK_SCALE))
@@ -116,13 +119,13 @@ while True:
         best_poi_pts_rc = pathfinding.swap_pt_xy_rc(best_poi_pts_xy)
 
         path, cost = pathfinding.get_shortest_path(
-            walkable_mask, 
+            walkable_mask_small, 
             start_rc=pathfinding.downscale_pt(CENTER_RC, MAP_SHRINK_SCALE), 
             end_rc=pathfinding.downscale_pt(best_poi_pts_rc, MAP_SHRINK_SCALE)
         )
 
         if cost is not None:
-            pathfinding.move_along_path(path, steps=50)
+            pathfinding.move_along_path(path, steps=20)
             break
         elif i == len(poi_pts_xy) - 1:
             debug.display_mask("totally stuck!!", debug.resize_print(walkable_mask_small, 5))

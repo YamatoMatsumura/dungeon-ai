@@ -83,22 +83,24 @@ def get_walkable_pois(combined_poi_mask, poi_masks, player_rc):
     
     return walkable_mask, walkable_poi_mask
 
-def downsample_mask(mask, block_size=5):
-    """
-    mask: boolean array of shape (H, W)
-    block_size: number of pixels per grid cell
-    """
+def downsample_mask(mask, shrink_scale):
+    # Find contours
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
-    H, W = mask.shape
-    new_H = H // block_size
-    new_W = W // block_size
+    # create new mask with shrunken dimensions
+    new_H = mask.shape[0] // shrink_scale
+    new_W = mask.shape[1] // shrink_scale
+    downsampled_mask = np.zeros((new_H, new_W), dtype=np.uint8)
 
-    # Initialize smaller grid
-    grid = np.zeros((new_H, new_W), dtype=bool)
+    for i, cnt in enumerate(contours):
+        cnt_scaled = cnt // shrink_scale
 
-    for i in range(new_H):
-        for j in range(new_W):
-            block = mask[i*block_size:(i+1)*block_size, j*block_size:(j+1)*block_size]
-            grid[i, j] = np.all(block)  # True if all pixels are walkable
-
-    return grid.astype(np.uint8) * 255
+        # if this contours parent is -1, top level contour so fill normally
+        if hierarchy[0][i][3] == -1:
+            cv2.drawContours(downsampled_mask, [cnt_scaled], -1, color=255, thickness=-1)
+        
+        # else, indicates a whole within the contour, so fill with 0's
+        else:
+            cv2.drawContours(downsampled_mask, [cnt_scaled], -1, color=0, thickness=-1)
+    
+    return downsampled_mask

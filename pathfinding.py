@@ -1,13 +1,13 @@
 import numpy as np
 import cv2
 from skimage.graph import route_through_array
-import pydirectinput
+from heapq import heappush, heappop
 import mss
 import time
 from scipy import ndimage
 
 import debug_prints as debug
-from key_press import press_key, VK_CODES
+from key_press import press_keys, VK_CODES
 
 MIN_KEYPRESS_DURATION = None
 def get_corridor_center_xy(corridor_mask):
@@ -85,20 +85,20 @@ def get_next_heading(room_vectors, boss_heading, i):
     dots = np.argsort(dots)[::-1]
     return room_vectors[dots[i]]
 
-
 def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     # walkable_mask has 0 as unwalkable, 255 as walkable
     # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
-    cost_array = np.where(walkable_mask_small, 1, np.inf)
+    cost_array = np.where(walkable_mask_small, 1, 255)
+
 
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
         end_rc = get_nearest_walkable_rc(walkable_mask_small, end_rc)
 
     try:
-        indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=False)
-        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
+        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")
@@ -119,13 +119,21 @@ def get_nearest_walkable_rc(mask, start_rc):
 
 def map_delta_to_key(dr, dc):
     if dr == -1 and dc == 0:
-        return 'w'
+        return ['w']
     elif dr == 1 and dc == 0:
-        return 's' 
+        return ['s'] 
     elif dr == 0 and dc == -1:
-        return 'a'  
+        return ['a']  
     elif dr == 0 and dc == 1:
-        return 'd'
+        return ['d']
+    elif dr == -1 and dc == -1:
+        return ['w', 'a']
+    elif dr == -1 and dc == 1:
+        return ['w', 'd']
+    elif dr == 1 and dc == -1:
+        return ['s', 'a']
+    elif dr == 1 and dc == 1:
+        return ['s', 'd']
     else:
         return None  # no movement
 
@@ -160,10 +168,11 @@ def move_along_path(path, steps):
         if i == steps - 1:
             key_counts.append((last_key, count))
 
-    print(f"Given path lengths of {len(path)}")
-    print(f"key counts: {key_counts}")
     for key, count in key_counts:
-        press_key(VK_CODES[key], duration=MIN_KEYPRESS_DURATION*count)
+        keys_to_press = []
+        for k in key:
+            keys_to_press.append(VK_CODES[k])
+        press_keys(keys_to_press, duration=MIN_KEYPRESS_DURATION*count)
 
 def parse_new_map(global_map, new_walkable_map):
     
@@ -299,7 +308,7 @@ def initialize_pixels_per_step():
             )
 
             time.sleep(0.01)
-            press_key(VK_CODES["w"], duration=MIN_KEYPRESS_DURATION)
+            press_keys([VK_CODES["w"]], duration=MIN_KEYPRESS_DURATION)
             time.sleep(0.01)
             moved_ss = np.array(sct.grab(minimap_region))
 
@@ -307,7 +316,7 @@ def initialize_pixels_per_step():
             _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
             time.sleep(0.01)
-            press_key(VK_CODES["s"], duration=MIN_KEYPRESS_DURATION)
+            press_keys([VK_CODES["s"]], duration=MIN_KEYPRESS_DURATION)
             time.sleep(0.01)
             pixels_per_step = pad - max_loc[1]
 
@@ -338,7 +347,7 @@ def check_min_duration():
         )
 
         time.sleep(0.01)
-        press_key(VK_CODES["w"], duration=MIN_KEYPRESS_DURATION*2)
+        press_keys([VK_CODES["w"]], duration=MIN_KEYPRESS_DURATION*2)
         time.sleep(0.01)
         moved_ss = np.array(sct.grab(minimap_region))
 
@@ -346,7 +355,7 @@ def check_min_duration():
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
         time.sleep(0.01)
-        press_key(VK_CODES["s"], duration=MIN_KEYPRESS_DURATION*2)
+        press_keys([VK_CODES["s"]], duration=MIN_KEYPRESS_DURATION*2)
         time.sleep(0.01)
         pixels_per_step = pad - max_loc[1]
 
