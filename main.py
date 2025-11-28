@@ -10,7 +10,10 @@ import debug_prints as debug
 time.sleep(2)
 
 global_map = np.zeros((1000, 1000), dtype=np.uint8)
-MAP_SHRINK_SCALE = 5
+MAP_SHRINK_SCALE = 1
+
+pathfinding.initialize_pixels_per_step()
+pathfinding.check_min_duration()
 while True:
 
     with mss.mss() as sct:
@@ -104,22 +107,22 @@ while True:
         walkable_mask_small = mask.downsample_mask(walkable_mask, block_size=MAP_SHRINK_SCALE)
         # DEBUG: display smaller map to double check resolution after shrinking
         # debug.display_mask("walkable_mask", walkable_mask)
-        # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, scale))
+        # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, MAP_SHRINK_SCALE))
 
         # convert next heading vec xy to pt
         best_poi_pts_xy = pathfinding.convert_vec_to_pt(best_poi_vec_xy, CENTER_XY)
 
         # downscale pt to match smaller map indices
         best_poi_pts_rc = pathfinding.swap_pt_xy_rc(best_poi_pts_xy)
-    
+
         path, cost = pathfinding.get_shortest_path(
-            walkable_mask_small, 
+            walkable_mask, 
             start_rc=pathfinding.downscale_pt(CENTER_RC, MAP_SHRINK_SCALE), 
             end_rc=pathfinding.downscale_pt(best_poi_pts_rc, MAP_SHRINK_SCALE)
         )
 
         if cost is not None:
-            pathfinding.move_along_path(path, steps=12)
+            pathfinding.move_along_path(path, steps=50)
             break
         elif i == len(poi_pts_xy) - 1:
             debug.display_mask("totally stuck!!", debug.resize_print(walkable_mask_small, 5))

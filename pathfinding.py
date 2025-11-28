@@ -2,12 +2,14 @@ import numpy as np
 import cv2
 from skimage.graph import route_through_array
 import pydirectinput
+import mss
 import time
-import math
 from scipy import ndimage
 
 import debug_prints as debug
+from key_press import press_key, VK_CODES
 
+MIN_KEYPRESS_DURATION = None
 def get_corridor_center_xy(corridor_mask):
     num_labels, labels = cv2.connectedComponents(corridor_mask, connectivity=4)
 
@@ -90,17 +92,17 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
     # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
     cost_array = np.where(walkable_mask_small, 1, np.inf)
 
-    debug.display_pathfinding(walkable_mask_small, cost_array, start_rc, end_rc)
-
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
         end_rc = get_nearest_walkable_rc(walkable_mask_small, end_rc)
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=False)
+        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")
+        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return None, None
 
 def get_nearest_walkable_rc(mask, start_rc):
@@ -128,7 +130,6 @@ def map_delta_to_key(dr, dc):
         return None  # no movement
 
 def move_along_path(path, steps):
-
     # Make sure only going at max len(path)
     if steps > len(path):
         steps = len(path)
@@ -158,12 +159,11 @@ def move_along_path(path, steps):
         # make sure last iteration adds the current key and count to key_count
         if i == steps - 1:
             key_counts.append((last_key, count))
-    
-    KEY_TIME_MULT = 0.059
+
+    print(f"Given path lengths of {len(path)}")
+    print(f"key counts: {key_counts}")
     for key, count in key_counts:
-        pydirectinput.keyDown(key)
-        time.sleep(count*KEY_TIME_MULT)
-        pydirectinput.keyUp(key)
+        press_key(VK_CODES[key], duration=MIN_KEYPRESS_DURATION*count)
 
 def parse_new_map(global_map, new_walkable_map):
     
@@ -261,10 +261,10 @@ def parse_new_map(global_map, new_walkable_map):
     return global_map, processed_region
 
 def get_center_rc(map):
-    return np.array([map.shape[0] // 2, map.shape[1] // 2])
+    return np.array([map.shape[0] // 2 - 1, map.shape[1] // 2])
 
 def get_center_xy(map):
-    return np.array([map.shape[1] // 2, map.shape[0] // 2])
+    return np.array([map.shape[1] // 2 - 1, map.shape[0] // 2])
 
 def downscale_pt(pt, scale):
     return (int(pt[0] // scale), int(pt[1] // scale))
@@ -277,3 +277,77 @@ def convert_vec_to_pt(vec, center):
 
 def swap_pt_xy_rc(pt):
     return (pt[1], pt[0])
+
+def initialize_pixels_per_step():
+    global MIN_KEYPRESS_DURATION
+    MIN_KEYPRESS_DURATION = 0.001  # assumed to safely return a pixel offset of 0
+    lower_bound = None
+    upper_bound = None
+    while lower_bound is None or upper_bound is None:
+        with mss.mss() as sct:
+
+            # get minimap screenshot
+            minimap_region = {"top": 5, "left": 2032, "width": 522, "height": 533}
+            initial_ss = np.array(sct.grab(minimap_region))
+
+            # pad initial screenshot so template matching works
+            pad = 20
+            expanded_initial = cv2.copyMakeBorder(
+                initial_ss,
+                pad, pad, pad, pad,
+                borderType=cv2.BORDER_REPLICATE
+            )
+
+            time.sleep(0.01)
+            press_key(VK_CODES["w"], duration=MIN_KEYPRESS_DURATION)
+            time.sleep(0.01)
+            moved_ss = np.array(sct.grab(minimap_region))
+
+            result = cv2.matchTemplate(expanded_initial, moved_ss, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+            time.sleep(0.01)
+            press_key(VK_CODES["s"], duration=MIN_KEYPRESS_DURATION)
+            time.sleep(0.01)
+            pixels_per_step = pad - max_loc[1]
+
+            if pixels_per_step == 1 and lower_bound is None:
+                lower_bound = MIN_KEYPRESS_DURATION
+            elif pixels_per_step > 1 and upper_bound is None:
+                upper_bound = MIN_KEYPRESS_DURATION
+            else:
+                MIN_KEYPRESS_DURATION += 0.001
+            
+            time.sleep(0.01)
+    
+    MIN_KEYPRESS_DURATION = lower_bound + 0.25*(upper_bound + lower_bound)  # bias towards lower end of bound
+    print(f"Found min keypress was {MIN_KEYPRESS_DURATION}")
+
+def check_min_duration():
+    with mss.mss() as sct:
+        # get minimap screenshot
+        minimap_region = {"top": 5, "left": 2032, "width": 522, "height": 533}
+        initial_ss = np.array(sct.grab(minimap_region))
+
+        # pad initial screenshot so template matching works
+        pad = 20
+        expanded_initial = cv2.copyMakeBorder(
+            initial_ss,
+            pad, pad, pad, pad,
+            borderType=cv2.BORDER_REPLICATE
+        )
+
+        time.sleep(0.01)
+        press_key(VK_CODES["w"], duration=MIN_KEYPRESS_DURATION*2)
+        time.sleep(0.01)
+        moved_ss = np.array(sct.grab(minimap_region))
+
+        result = cv2.matchTemplate(expanded_initial, moved_ss, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+        time.sleep(0.01)
+        press_key(VK_CODES["s"], duration=MIN_KEYPRESS_DURATION*2)
+        time.sleep(0.01)
+        pixels_per_step = pad - max_loc[1]
+
+        print(f"pixels per step: {pixels_per_step}")
