@@ -141,18 +141,24 @@ def move_along_path(path, steps):
         dc = path[i][1] - path[i-1][1]
 
         key = map_delta_to_key(dr, dc)
-
-        if key and key == last_key:
+        
+        # initialize last_key on the first one
+        if last_key == None:
+            last_key = key
             count += 1
-
-            if i == steps - 1:
-                key_counts.append((last_key, count))
+        # add 1 to key count if same key from last key
+        elif key == last_key:
+            count += 1
+        # else, key != last_key, so add the current key and count to key_counts and start counting this next one
         else:
-            if last_key is not None:
-                key_counts.append((last_key, count))
+            key_counts.append((last_key, count))
             last_key = key
             count = 1
         
+        # make sure last iteration adds the current key and count to key_count
+        if i == steps - 1:
+            key_counts.append((last_key, count))
+    
     KEY_TIME_MULT = 0.059
     for key, count in key_counts:
         pydirectinput.keyDown(key)

@@ -54,7 +54,6 @@ while True:
     #     debug.display_mask(mask_name, poi_mask)
 
     # filter down poi's to ones that are reachable from current pos
-
     walkable_mask, walkable_poi_mask = mask.get_walkable_pois(combined_poi_mask, poi_masks, CENTER_RC)
     # DEBUG: display walkable masks
     # debug.display_mask("walkable_map", walkable_mask)
@@ -75,7 +74,7 @@ while True:
             start_rc=pathfinding.downscale_pt(CENTER_RC, MAP_SHRINK_SCALE), 
             end_rc=pathfinding.downscale_pt(nearest_walkable_rc, MAP_SHRINK_SCALE)
         )
-        pathfinding.move_along_path(path, steps=12)
+        pathfinding.move_along_path(path, steps=len(path))
 
     poi_pts_xy = []
     poi_pts_xy.extend(pathfinding.get_corridor_center_xy(walkable_poi_mask["bridge/room"]))
