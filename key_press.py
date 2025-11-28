@@ -67,34 +67,39 @@ GetLastError = ctypes.windll.kernel32.GetLastError
 
 # --- Key Press Function ---
 
-def press_key(vk_code, duration=0.1):
+def key_down(vk_codes):
     """
-    Simulates pressing a key using the robust Scan Code method.
+    Presses (key down) multiple virtual-key codes at once.
     """
-    
-    # 1. Map Virtual Key to Scan Code
-    # MapVirtualKeyA(VK_code, MAPVK_VK_TO_VSC (0)) returns the scan code
-    scan_code = MapVirtualKeyA(vk_code, 0)
-    
-    # 2. Key Down (Event 1)
-    # dwFlags includes KEYEVENTF_SCANCODE
-    ii_down = INPUT(type=INPUT_KEYBOARD, 
-                    ki=KEYBDINPUT(wVk=0, wScan=scan_code, dwFlags=KEYEVENTF_SCANCODE))
-    
-    # Send Key Down and check for success
-    result = SendInput(1, ctypes.byref(ii_down), ctypes.sizeof(ii_down))
-    if result == 0:
-        print(f"Key Down FAILED. Last Error: {GetLastError()}")
-        return
+    inputs = []
+    for vk in vk_codes:
+        scan = MapVirtualKeyA(vk, 0)
+        inp = INPUT(type=INPUT_KEYBOARD,
+                    ki=KEYBDINPUT(wVk=0, wScan=scan, dwFlags=KEYEVENTF_SCANCODE))
+        inputs.append(inp)
 
-    # 3. Hold
-    if duration > 0:
-        time.sleep(duration)
-    
-    # 4. Key Up (Event 2)
-    # dwFlags includes KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP
-    ii_up = INPUT(type=INPUT_KEYBOARD, 
-                  ki=KEYBDINPUT(wVk=0, wScan=scan_code, dwFlags=KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP))
-    
-    # Send Key Up
-    SendInput(1, ctypes.byref(ii_up), ctypes.sizeof(ii_up))
+    # Send all key-down events at once
+    SendInput(len(inputs), (INPUT * len(inputs))(*inputs), ctypes.sizeof(INPUT))
+
+
+def key_up(vk_codes):
+    """
+    Releases (key up) multiple virtual-key codes at once.
+    """
+    inputs = []
+    for vk in vk_codes:
+        scan = MapVirtualKeyA(vk, 0)
+        inp = INPUT(type=INPUT_KEYBOARD,
+                    ki=KEYBDINPUT(wVk=0, wScan=scan, dwFlags=KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP))
+        inputs.append(inp)
+
+    SendInput(len(inputs), (INPUT * len(inputs))(*inputs), ctypes.sizeof(INPUT))
+
+
+def press_keys(vk_codes, duration=0.1):
+    """
+    Press and hold multiple keys, then release.
+    """
+    key_down(vk_codes)
+    time.sleep(duration)
+    key_up(vk_codes)
