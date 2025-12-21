@@ -86,14 +86,14 @@ while True:
 
     boss_heading_xy = pathfinding.get_boss_heading_xy(game_ss, GAME_CENTER_XY)
     # DEBUG: Display boss heading arrow
-    debug.display_boss_heading(minimap_ss, boss_heading_xy)
+    # debug.display_boss_heading(minimap_ss, boss_heading_xy)
 
     # convert poi pts to vecs
     poi_vec_xy = []
     for pt in poi_pts_xy:
         poi_vec_xy.append(pathfinding.convert_pt_to_vec(pt, MINIMAP_CENTER_XY))
     # DEBUG: Display poi vectors
-    debug.display_poi_vectors(minimap_ss, poi_vec_xy)
+    # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
     for pt in poi_pts_xy:
         adjusted_x = int(pt[0] + new_map_start_x)
@@ -103,7 +103,7 @@ while True:
         pathfinding.parse_new_poi((adjusted_x, adjusted_y), max_radius=15)
 
     # print(f"global_pois after add: {Global.poi_pts_xy}")
-    debug.display_global_pois(Global.map, Global.poi_pts_xy)
+    # debug.display_global_pois(Global.map, Global.poi_pts_xy)
 
     # loop over options in case one poi is unreachable right now
     for i in range(len(poi_pts_xy)):
