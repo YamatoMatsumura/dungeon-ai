@@ -1,13 +1,16 @@
 import numpy as np
 import cv2
 from skimage.graph import route_through_array
-from heapq import heappush, heappop
 import mss
 import time
 from scipy import ndimage
+from collections import deque
+
 
 import debug_prints as debug
 from key_press import press_keys, VK_CODES
+from globals import Global
+import color_mask as mask
 
 MIN_KEYPRESS_DURATION = None
 def get_corridor_center_xy(corridor_mask):
@@ -45,9 +48,9 @@ def get_room_center_xy(room_mask, player_rc):
                 center_y = M["m01"] / M["m00"]
                 centroids.append(np.array([center_x, center_y]))
 
-    # # DEBUG: Draw red circle at centroids
-    # # Draw centroids on top
-    # map_vis = cv2.cvtColor((map_filled).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    # DEBUG: Draw red circle at centroids
+    # Draw centroids on top
+    # map_vis = cv2.cvtColor((room_mask).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     # for cx, cy in centroids:
     #     cv2.circle(map_vis, (int(cx), int(cy)), radius=5, color=(0,0,255), thickness=-1)  # red dots
 
@@ -98,7 +101,7 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")
@@ -137,7 +140,7 @@ def map_delta_to_key(dr, dc):
     else:
         return None  # no movement
 
-def move_along_path(path, steps):
+def move_along_path(path, steps, scale=1):
     # Make sure only going at max len(path)
     if steps > len(path):
         steps = len(path)
@@ -172,31 +175,31 @@ def move_along_path(path, steps):
         keys_to_press = []
         for k in key:
             keys_to_press.append(VK_CODES[k])
-        press_keys(keys_to_press, duration=MIN_KEYPRESS_DURATION*count)
+        press_keys(keys_to_press, duration=Global.MIN_KEYPRESS_DURATION*scale*count)
 
-def parse_new_map(global_map, new_walkable_map):
+def parse_new_map(new_walkable_map):
     
     minimap_h, minimap_w = new_walkable_map.shape[:2]
-    global_h, global_w = global_map.shape[:2]
+    global_h, global_w = Global.get_map_dim_rc()
 
     # if first new map...
-    if np.all(global_map == 0):
+    if np.all(Global.map == 0):
         # calculate center and subtract off half of new map dims
         start_y = global_h // 2 - minimap_h // 2
         start_x = global_w // 2 - minimap_w // 2
 
         # add walkable map to center
-        global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = new_walkable_map
+        Global.map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = new_walkable_map
 
-        return global_map, new_walkable_map
+        return new_walkable_map, start_x, start_y
 
     else:
-        result = cv2.matchTemplate(global_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
+        result = cv2.matchTemplate(Global.map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
         start_x, start_y = max_loc    
 
-        region = global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w]
+        region = Global.map[start_y:start_y+minimap_h, start_x:start_x+minimap_w]
         
         # Create mask of true around player region
         player_mask = np.zeros_like(region, dtype=bool)
@@ -221,7 +224,7 @@ def parse_new_map(global_map, new_walkable_map):
             region_after = cv2.cvtColor(processed_region.copy(), cv2.COLOR_GRAY2BGR)
             new_walkable = cv2.cvtColor(new_walkable_map.copy(), cv2.COLOR_GRAY2BGR)
 
-            global_color = cv2.cvtColor(global_map.copy(), cv2.COLOR_GRAY2BGR)
+            global_color = cv2.cvtColor(Global.map.copy(), cv2.COLOR_GRAY2BGR)
             cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
 
             # Draw red rectangle (BGR: 0,0,255)
@@ -235,12 +238,13 @@ def parse_new_map(global_map, new_walkable_map):
             cv2.imshow("BAD Combined with new map info", region_after)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-            return global_map
+
+            return processed_region, start_x, start_y
 
         # add new processed region to our global map
-        global_map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = processed_region
+        Global.map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = processed_region
 
-
+        # buffer size is the size of the minimap
         buffer_h, buffer_w = minimap_h, minimap_w
 
         # check if we have one buffer size amount of space around box starting at start_y, start_x
@@ -261,13 +265,75 @@ def parse_new_map(global_map, new_walkable_map):
             new_w = global_w + expand_left_height + expand_right_height
 
             # copy over old map
-            new_global = np.zeros((new_h, new_w), dtype=global_map.dtype)
-            new_global[expand_top_height:expand_top_height+global_h, expand_left_height:expand_left_height+global_w] = global_map
+            new_global = np.zeros((new_h, new_w), dtype=Global.map.dtype)
+            new_global[expand_top_height:expand_top_height+global_h, expand_left_height:expand_left_height+global_w] = Global.map
 
-            print(f"Expanded map from {global_map.shape} to {new_global.shape}")
-            global_map = new_global
+            print(f"Expanded map from {Global.map.shape} to {new_global.shape}")
+            Global.map = new_global
 
-    return global_map, processed_region
+            # update global map poi's to match expanded map size
+            updated_global_pois = set()
+            for poi in Global.poi_pts_xy:
+                updated_global_pois.add((poi[0] + expand_left_height, poi[1] + expand_top_height))
+            
+            Global.poi_pts_xy = updated_global_pois
+
+            return processed_region, start_x + expand_left_height, start_y + expand_top_height
+
+    return processed_region, start_x, start_y
+
+def parse_new_poi(new_poi, max_radius):
+
+    for x, y in Global.poi_pts_xy:
+
+        # if this global poi is nearby the new poi
+        if np.linalg.norm((x - new_poi[0], y - new_poi[1])) < max_radius:
+            # if this global poi and new poi is rechable within the max radius
+            if is_reachable((x, y), new_poi, Global.map, max_radius):
+                return
+    
+    # else, add the new poi to globals
+    Global.poi_pts_xy.add(new_poi)
+
+def is_reachable(source, target, global_map, max_radius=5): 
+    queue = deque()
+    queue.append((source[0], source[1], 0))
+
+    visited = set()
+    visited.add(source)
+    directions = [(0,1), (0,-1), (1,0), (-1,0)]
+
+    max_rows, max_cols = global_map.shape
+
+    while queue:
+        x, y, distance = queue.popleft()
+
+        # skip point if too far from source point
+        if distance > max_radius:
+            continue
+
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+
+            # skip if point is not within bounds
+            if not (0 <= nx < max_cols and 0 <= ny < max_rows):
+                continue
+
+            # skip if point is not walkable
+            if global_map[ny, nx] == 0:
+                continue
+
+            # skip if already visited
+            if (nx, ny) in visited:
+                continue
+
+            if (nx, ny) == target:
+                return True
+
+            visited.add((nx, ny))
+            queue.append((nx, ny, distance+1))
+
+    return False
 
 def get_center_rc(map):
     return np.array([map.shape[0] // 2 - 1, map.shape[1] // 2])
@@ -275,8 +341,8 @@ def get_center_rc(map):
 def get_center_xy(map):
     return np.array([map.shape[1] // 2 - 1, map.shape[0] // 2])
 
-def downscale_pt(pt, scale):
-    return (int(pt[0] // scale), int(pt[1] // scale))
+def downscale_pt(pt):
+    return (int(pt[0] // Global.MAP_SHRINK_SCALE), int(pt[1] // Global.MAP_SHRINK_SCALE))
 
 def convert_pt_to_vec(pt, center):
     return pt - center
@@ -288,10 +354,10 @@ def swap_pt_xy_rc(pt):
     return (pt[1], pt[0])
 
 def initialize_pixels_per_step():
-    global MIN_KEYPRESS_DURATION
-    MIN_KEYPRESS_DURATION = 0.001  # assumed to safely return a pixel offset of 0
     lower_bound = None
     upper_bound = None
+
+    keypress_duration = 0.001  # assumed to safely return a pixel offset of 0
     while lower_bound is None or upper_bound is None:
         with mss.mss() as sct:
 
@@ -308,7 +374,7 @@ def initialize_pixels_per_step():
             )
 
             time.sleep(0.01)
-            press_keys([VK_CODES["w"]], duration=MIN_KEYPRESS_DURATION)
+            press_keys([VK_CODES["w"]], duration=keypress_duration)
             time.sleep(0.01)
             moved_ss = np.array(sct.grab(minimap_region))
 
@@ -316,21 +382,21 @@ def initialize_pixels_per_step():
             _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
             time.sleep(0.01)
-            press_keys([VK_CODES["s"]], duration=MIN_KEYPRESS_DURATION)
+            press_keys([VK_CODES["s"]], duration=keypress_duration)
             time.sleep(0.01)
             pixels_per_step = pad - max_loc[1]
 
             if pixels_per_step == 1 and lower_bound is None:
-                lower_bound = MIN_KEYPRESS_DURATION
+                lower_bound = keypress_duration
             elif pixels_per_step > 1 and upper_bound is None:
-                upper_bound = MIN_KEYPRESS_DURATION
+                upper_bound = keypress_duration
             else:
-                MIN_KEYPRESS_DURATION += 0.001
+                keypress_duration += 0.001
             
             time.sleep(0.01)
     
-    MIN_KEYPRESS_DURATION = lower_bound + 0.25*(upper_bound + lower_bound)  # bias towards lower end of bound
-    print(f"Found min keypress was {MIN_KEYPRESS_DURATION}")
+    Global.MIN_KEYPRESS_DURATION = (lower_bound + 0.25*(upper_bound + lower_bound))  # bias towards lower end of bound
+    print(f"Found min keypress was {Global.MIN_KEYPRESS_DURATION}")
 
 def check_min_duration():
     with mss.mss() as sct:
@@ -347,7 +413,7 @@ def check_min_duration():
         )
 
         time.sleep(0.01)
-        press_keys([VK_CODES["w"]], duration=MIN_KEYPRESS_DURATION*2)
+        press_keys([VK_CODES["w"]], duration=Global.MIN_KEYPRESS_DURATION*2)
         time.sleep(0.01)
         moved_ss = np.array(sct.grab(minimap_region))
 
@@ -355,7 +421,7 @@ def check_min_duration():
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
         time.sleep(0.01)
-        press_keys([VK_CODES["s"]], duration=MIN_KEYPRESS_DURATION*2)
+        press_keys([VK_CODES["s"]], duration=Global.MIN_KEYPRESS_DURATION*2)
         time.sleep(0.01)
         pixels_per_step = pad - max_loc[1]
 
