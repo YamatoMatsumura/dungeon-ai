@@ -101,11 +101,11 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")
-        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return None, None
 
 def get_nearest_walkable_rc(mask, start_rc):
@@ -140,7 +140,7 @@ def map_delta_to_key(dr, dc):
     else:
         return None  # no movement
 
-def move_along_path(path, steps, scale=1):
+def move_along_path(path, steps, scale=1, slower_movement_adjustment=1):
     # Make sure only going at max len(path)
     if steps > len(path):
         steps = len(path)
@@ -175,112 +175,36 @@ def move_along_path(path, steps, scale=1):
         keys_to_press = []
         for k in key:
             keys_to_press.append(VK_CODES[k])
-        press_keys(keys_to_press, duration=Global.MIN_KEYPRESS_DURATION*scale*count)
+        press_keys(keys_to_press, duration=Global.MIN_KEYPRESS_DURATION*count*scale*slower_movement_adjustment)
 
 def parse_new_map(new_walkable_map):
-    
     minimap_h, minimap_w = new_walkable_map.shape[:2]
-    global_h, global_w = Global.get_map_dim_rc()
 
     # if first new map...
-    if np.all(Global.map == 0):
-        # calculate center and subtract off half of new map dims
-        start_y = global_h // 2 - minimap_h // 2
-        start_x = global_w // 2 - minimap_w // 2
+    if np.all(Global.previous_map == 0):
+        Global.update_previous_map(new_walkable_map)
 
-        # add walkable map to center
-        Global.map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = new_walkable_map
+        # set current loc to be center of minimap
+        Global.current_loc_xy = np.array([minimap_w // 2, minimap_h // 2])
 
-        return new_walkable_map, start_x, start_y
+        # add spawn to poi
+        Global.poi_pts_xy.add((minimap_w // 2, minimap_h // 2))
 
     else:
-        result = cv2.matchTemplate(Global.map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
+        result = cv2.matchTemplate(Global.previous_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
-        start_x, start_y = max_loc    
-
-        region = Global.map[start_y:start_y+minimap_h, start_x:start_x+minimap_w]
-        
-        # Create mask of true around player region
-        player_mask = np.zeros_like(region, dtype=bool)
-        minimap_center_h = minimap_h // 2
-        minimap_center_w = minimap_w // 2
-        player_mask[minimap_center_h - 34 : minimap_center_h + 18, minimap_center_w - 14 : minimap_center_w + 14] = True
-
-        # Around the player, always prefer what we had previously (since force fill walkable around player because of the arrow)
-        # debug.display_mask("previous region in global", region)
-        processed_region = np.where(player_mask, region, np.maximum(region, new_walkable_map))
-
+        print(f"Matched to {max_loc} with confidence {max_val}")
         if max_val < 0.85:
-            print(f"Confidence of {max_val}, skipping...")
+            print(f"Confidence of {max_val} is bad...")
+            input()
+        start_x, start_y = max_loc
 
-            # Compute rectangle coordinates from player_mask
-            rows, cols = np.where(player_mask)
-            top_left = (cols.min(), rows.min())        # (x, y)
-            bottom_right = (cols.max(), rows.max())    # (x, y)
+        new_x = start_x - minimap_w
+        new_y = start_y - minimap_h
 
-            # Make copies for visualization (so you don't modify actual mask)
-            region_before = cv2.cvtColor(region.copy(), cv2.COLOR_GRAY2BGR)
-            region_after = cv2.cvtColor(processed_region.copy(), cv2.COLOR_GRAY2BGR)
-            new_walkable = cv2.cvtColor(new_walkable_map.copy(), cv2.COLOR_GRAY2BGR)
-
-            global_color = cv2.cvtColor(Global.map.copy(), cv2.COLOR_GRAY2BGR)
-            cv2.rectangle(global_color, (start_x, start_y), (start_x+minimap_w, start_y+minimap_h), (0,0,255), 1)
-
-            # Draw red rectangle (BGR: 0,0,255)
-            cv2.rectangle(region_before, top_left, bottom_right, color=(0,0,255), thickness=1)
-            cv2.rectangle(region_after, top_left, bottom_right, color=(0,0,255), thickness=1)
-            cv2.rectangle(new_walkable, top_left, bottom_right, color=(0,0,255), thickness=1)
-            # Display
-            cv2.imshow("BAD Stuff previously in Global", region_before)
-            cv2.imshow("BAD New walkable map", new_walkable)
-            cv2.imshow("BAD Placing new walkable here on global", global_color)
-            cv2.imshow("BAD Combined with new map info", region_after)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-            return processed_region, start_x, start_y
-
-        # add new processed region to our global map
-        Global.map[start_y:start_y+minimap_h, start_x:start_x+minimap_w] = processed_region
-
-        # buffer size is the size of the minimap
-        buffer_h, buffer_w = minimap_h, minimap_w
-
-        # check if we have one buffer size amount of space around box starting at start_y, start_x
-        expand_top = max(0, buffer_h - start_y)
-        expand_left = max(0, buffer_w - start_x)
-        expand_bottom = max(0, start_y + minimap_h + buffer_h - global_h)
-        expand_right = max(0, start_x + minimap_w +buffer_w - global_w)
-
-        if any([expand_top, expand_left, expand_bottom, expand_right]):
-
-            # expand by one buffer size in direction needed
-            expand_top_height = (buffer_h if expand_top > 0 else 0)
-            expand_bottom_height = (buffer_h if expand_bottom > 0 else 0)
-            expand_left_height = (buffer_w if expand_left > 0 else 0)
-            expand_right_height = (buffer_w if expand_right > 0 else 0)
-
-            new_h = global_h + expand_top_height + expand_bottom_height
-            new_w = global_w + expand_left_height + expand_right_height
-
-            # copy over old map
-            new_global = np.zeros((new_h, new_w), dtype=Global.map.dtype)
-            new_global[expand_top_height:expand_top_height+global_h, expand_left_height:expand_left_height+global_w] = Global.map
-
-            print(f"Expanded map from {Global.map.shape} to {new_global.shape}")
-            Global.map = new_global
-
-            # update global map poi's to match expanded map size
-            updated_global_pois = set()
-            for poi in Global.poi_pts_xy:
-                updated_global_pois.add((poi[0] + expand_left_height, poi[1] + expand_top_height))
-            
-            Global.poi_pts_xy = updated_global_pois
-
-            return processed_region, start_x + expand_left_height, start_y + expand_top_height
-
-    return processed_region, start_x, start_y
+        Global.current_loc_xy += np.array([new_x, new_y])
+        Global.update_previous_map(new_walkable_map)
 
 def parse_new_poi(new_poi, max_radius):
 
@@ -288,10 +212,8 @@ def parse_new_poi(new_poi, max_radius):
 
         # if this global poi is nearby the new poi
         if np.linalg.norm((x - new_poi[0], y - new_poi[1])) < max_radius:
-            # if this global poi and new poi is rechable within the max radius
-            if is_reachable((x, y), new_poi, Global.map, max_radius):
                 return
-    
+
     # else, add the new poi to globals
     Global.poi_pts_xy.add(new_poi)
 

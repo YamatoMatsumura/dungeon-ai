@@ -5,7 +5,7 @@ from skimage.graph import route_through_array
 
 
 import color_mask as mask
-
+from globals import Global
 
 def display_BGR(ss):
     cv2.imshow("minimap", cv2.cvtColor(ss, cv2.COLOR_BGRA2BGR))
@@ -119,18 +119,36 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def display_global_pois(global_map, global_pois):
-    map_copy = global_map.copy()  # Make a copy so we don't modify original
-    map_color = cv2.cvtColor(map_copy, cv2.COLOR_GRAY2BGR)
+def display_global_pois():
+    pois = np.array(list(Global.poi_pts_xy))
+    
+    # Padding around the points
+    padding = 20
 
-    # global_poi_pts_xy is your list of points in (x, y)
-    for pt in global_pois:
-        x, y = int(pt[0]), int(pt[1])  # convert to integer pixel coordinates
-        color = (0, 0, 255)            # red in BGR
-        radius = 5
-        thickness = -1                 # filled circle
-        cv2.circle(map_color, (x, y), radius, color, thickness)
+    # Find bounds
+    min_x = pois[:, 0].min()
+    max_x = pois[:, 0].max()
+    min_y = pois[:, 1].min()
+    max_y = pois[:, 1].max()
 
-    cv2.imshow("global_pois", resize_print(map_color, 0.5))
+    # Image size
+    width  = (max_x - min_x) + 2 * padding
+    height = (max_y - min_y) + 2 * padding
+
+    # Create image
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Shift points so they fit in the image
+    shifted_points = pois - np.array([min_x, min_y]) + padding
+
+    # Draw points and connect them
+    for i in range(len(shifted_points)):
+        x, y = shifted_points[i]
+        if x == width // 2 and y == height // 2:
+            cv2.circle(img, (x, y), 4, (255, 0, 0), -1)
+        else:
+            cv2.circle(img, (x, y), 4, (0, 255, 0), -1)
+
+    cv2.imshow("Global Pois", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

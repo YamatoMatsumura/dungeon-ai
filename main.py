@@ -46,9 +46,9 @@ while True:
     # DEBUG: Show final mask
     # debug.display_mask("Final Combined", combined_poi_mask)
 
-    # add new mask to walkable map, as well as update the combined poi mask to handle player arrow
-    combined_poi_mask, new_map_start_x, new_map_start_y = pathfinding.parse_new_map(combined_poi_mask)
-    # debug.display_mask("Global map", debug.resize_print(global_map, 0.5))
+    # update current location based on new mask
+    pathfinding.parse_new_map(combined_poi_mask)
+    print(f"Current location offset from 0,0 is: {Global.current_loc_xy}")
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
     poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
@@ -78,7 +78,7 @@ while True:
             end_rc=nearest_walkable_rc
         )
 
-        pathfinding.move_along_path(path, steps=len(path))
+        pathfinding.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
 
     poi_pts_xy = []
     poi_pts_xy.extend(pathfinding.get_corridor_center_xy(walkable_poi_mask["bridge/room"]))
@@ -93,17 +93,17 @@ while True:
     for pt in poi_pts_xy:
         poi_vec_xy.append(pathfinding.convert_pt_to_vec(pt, MINIMAP_CENTER_XY))
     # DEBUG: Display poi vectors
-    # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
+    debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
     for pt in poi_pts_xy:
-        adjusted_x = int(pt[0] + new_map_start_x)
-        adjusted_y = int(pt[1] + new_map_start_y)
+        adjusted_x = int(pt[0] + Global.current_loc_xy[0])
+        adjusted_y = int(pt[1] + Global.current_loc_xy[1])
 
         # check whether to add this new poi to global pois based on distance
         pathfinding.parse_new_poi((adjusted_x, adjusted_y), max_radius=15)
 
     # print(f"global_pois after add: {Global.poi_pts_xy}")
-    # debug.display_global_pois(Global.map, Global.poi_pts_xy)
+    debug.display_global_pois()
 
     # loop over options in case one poi is unreachable right now
     for i in range(len(poi_pts_xy)):
