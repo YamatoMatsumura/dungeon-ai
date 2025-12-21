@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 import debug_prints as debug
+from globals import Global
 
 def get_poi_masks(minimap_ss):
     hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
@@ -13,7 +14,7 @@ def get_poi_masks(minimap_ss):
         "player": np.array([0, 0, 255]),
         "ship_room": np.array([170, 61, 63]),
         "carpet": np.array([174, 163, 125]),
-        "enemies": np.array([0, 255, 255]),
+        # "enemies": np.array([0, 255, 255]),
         "portal": np.array([120, 255, 255]),
     }
 
@@ -83,17 +84,17 @@ def get_walkable_pois(combined_poi_mask, poi_masks, player_rc):
     
     return walkable_mask, walkable_poi_mask
 
-def downsample_mask(mask, shrink_scale):
+def downsample_mask(mask):
     # Find contours
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
     # create new mask with shrunken dimensions
-    new_H = mask.shape[0] // shrink_scale
-    new_W = mask.shape[1] // shrink_scale
+    new_H = mask.shape[0] // Global.MAP_SHRINK_SCALE
+    new_W = mask.shape[1] // Global.MAP_SHRINK_SCALE
     downsampled_mask = np.zeros((new_H, new_W), dtype=np.uint8)
 
     for i, cnt in enumerate(contours):
-        cnt_scaled = cnt // shrink_scale
+        cnt_scaled = cnt // Global.MAP_SHRINK_SCALE
 
         # if this contours parent is -1, top level contour so fill normally
         if hierarchy[0][i][3] == -1:

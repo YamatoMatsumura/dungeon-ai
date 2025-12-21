@@ -118,3 +118,19 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
     cv2.imshow("path", resize_print(debug_map_color, 2))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+def display_global_pois(global_map, global_pois):
+    map_copy = global_map.copy()  # Make a copy so we don't modify original
+    map_color = cv2.cvtColor(map_copy, cv2.COLOR_GRAY2BGR)
+
+    # global_poi_pts_xy is your list of points in (x, y)
+    for pt in global_pois:
+        x, y = int(pt[0]), int(pt[1])  # convert to integer pixel coordinates
+        color = (0, 0, 255)            # red in BGR
+        radius = 5
+        thickness = -1                 # filled circle
+        cv2.circle(map_color, (x, y), radius, color, thickness)
+
+    cv2.imshow("global_pois", resize_print(map_color, 0.5))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
