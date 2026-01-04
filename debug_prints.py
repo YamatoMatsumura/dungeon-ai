@@ -120,35 +120,93 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
     cv2.destroyAllWindows()
 
 def display_global_pois():
-    pois = np.array(list(Global.poi_pts_xy))
-    
-    # Padding around the points
-    padding = 20
+    pois = np.array(list(Global.poi_pts_xy), dtype=int)
 
-    # Find bounds
-    min_x = pois[:, 0].min()
-    max_x = pois[:, 0].max()
-    min_y = pois[:, 1].min()
-    max_y = pois[:, 1].max()
+    # Include origin and manual point in bounds
+    extra_points = np.array([
+        [0, 0],
+        [261, 266],
+    ], dtype=int)
+
+    if pois.size == 0:
+        all_points = extra_points
+    else:
+        all_points = np.vstack([pois, extra_points])
+
+    # Padding for labels
+    padding = 40
+
+    # Find extents relative to origin
+    min_x = all_points[:, 0].min()
+    max_x = all_points[:, 0].max()
+    min_y = all_points[:, 1].min()
+    max_y = all_points[:, 1].max()
 
     # Image size
-    width  = (max_x - min_x) + 2 * padding
-    height = (max_y - min_y) + 2 * padding
+    w = (max_x - min_x) + padding * 2
+    h = (max_y - min_y) + padding * 2
 
-    # Create image
-    img = np.zeros((height, width, 3), dtype=np.uint8)
+    # Origin position in image
+    origin_x = -min_x + padding
+    origin_y = -min_y + padding
 
-    # Shift points so they fit in the image
-    shifted_points = pois - np.array([min_x, min_y]) + padding
+    img = np.ones((h, w, 3), dtype=np.uint8) * 255
 
-    # Draw points and connect them
-    for i in range(len(shifted_points)):
-        x, y = shifted_points[i]
-        if x == width // 2 and y == height // 2:
-            cv2.circle(img, (x, y), 4, (255, 0, 0), -1)
-        else:
-            cv2.circle(img, (x, y), 4, (0, 255, 0), -1)
+    # Draw axes (optional but very helpful)
+    cv2.line(img, (0, origin_y), (w, origin_y), (200, 200, 200), 1)
+    cv2.line(img, (origin_x, 0), (origin_x, h), (200, 200, 200), 1)
 
-    cv2.imshow("Global Pois", img)
+    # Draw POIs
+    for x, y in pois:
+        px = x + origin_x
+        py = y + origin_y
+
+        cv2.circle(img, (px, py), 4, (0, 0, 255), -1)
+        cv2.putText(
+            img,
+            f"({x}, {y})",
+            (px + 5, py + 15),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.4,
+            (0, 0, 0),
+            1,
+            cv2.LINE_AA
+        )
+
+    # Draw origin
+    cv2.circle(img, (origin_x, origin_y), 6, (255, 0, 0), -1)
+    cv2.putText(
+        img,
+        "(0,0)",
+        (origin_x + 5, origin_y - 5),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.4,
+        (255, 0, 0),
+        1
+    )
+
+    # Draw manual point (261, 266)
+    mx, my = 261, 266
+    cv2.circle(
+        img,
+        (mx + origin_x, my + origin_y),
+        6,
+        (0, 255, 0),
+        -1
+    )
+
+    offset_x, offset_y = Global.origin_offset_xy
+    cv2.circle(img, (offset_x + mx + origin_x, offset_y + my + origin_y), 6, (255, 0, 0), -1)
+    cv2.putText(
+        img,
+        f"({offset_x}, {offset_y})",
+        (offset_x + mx + origin_x + 5, offset_y + my + origin_y - 5),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.4,
+        (255, 0, 0),
+        1
+    )
+
+    cv2.imshow("POIs (Origin Centered)", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

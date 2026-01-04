@@ -66,3 +66,11 @@ def get_boss_heading_xy(game_ss, player_xy):
     boss_heading_vec = template_mid - player_xy
 
     return boss_heading_vec
+
+def pad_map(map):
+    height, width = map.shape[:2]
+
+    padded_map = np.zeros((3*height, 3*width), dtype=map.dtype)
+    padded_map[height:height*2, width:width*2] = map
+
+    return padded_map

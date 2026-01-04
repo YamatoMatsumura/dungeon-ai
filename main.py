@@ -49,7 +49,7 @@ while True:
 
     # update current location based on new mask
     pathfinding.parse_new_map(combined_poi_mask)
-    print(f"Current location offset from 0,0 is: {Global.current_loc_xy}")
+    print(f"Current location offset from 0,0 is: {Global.origin_offset_xy}")
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
     poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
@@ -97,8 +97,8 @@ while True:
     debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
     for pt in poi_pts_xy:
-        adjusted_x = int(pt[0] + Global.current_loc_xy[0])
-        adjusted_y = int(pt[1] + Global.current_loc_xy[1])
+        adjusted_x = int(pt[0] + Global.origin_offset_xy[0])
+        adjusted_y = int(pt[1] + Global.origin_offset_xy[1])
 
         # check whether to add this new poi to global pois based on distance
         pathfinding.parse_new_poi((adjusted_x, adjusted_y), max_radius=15)

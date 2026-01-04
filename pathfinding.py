@@ -6,7 +6,7 @@ import time
 from scipy import ndimage
 from collections import deque
 
-
+import map_transforms
 import debug_prints as debug
 from key_press import press_keys, VK_CODES
 from globals import Global
@@ -118,14 +118,11 @@ def parse_new_map(new_walkable_map):
     # if first new map...
     if np.all(Global.current_map == 0):
         Global.current_map = new_walkable_map
-
-        # set current loc to be center of minimap
-        Global.current_loc_xy = np.array([minimap_w // 2, minimap_h // 2])
     else:
-        result = cv2.matchTemplate(Global.current_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
+        padded_current_map = map_transforms.pad_map(Global.current_map)
+        result = cv2.matchTemplate(padded_current_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
-        print(f"Matched to {max_loc} with confidence {max_val}")
         if max_val < 0.85:
             print(f"Confidence of {max_val} is bad...")
             input()
@@ -134,8 +131,10 @@ def parse_new_map(new_walkable_map):
         new_x = start_x - minimap_w
         new_y = start_y - minimap_h
 
-        Global.current_loc_xy += np.array([new_x, new_y])
-        Global.add_buffer_to_map(new_walkable_map)
+
+        Global.origin_offset_xy += np.array([new_x, new_y])
+
+        Global.current_map = new_walkable_map
 
 def parse_new_poi(new_poi, max_radius):
 
