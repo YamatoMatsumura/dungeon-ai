@@ -5,6 +5,7 @@ import time  # to delay screenshot
 
 import color_mask as mask
 import pathfinding
+import map_transforms
 import debug_prints as debug
 from globals import Global
 
@@ -81,10 +82,10 @@ while True:
         pathfinding.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
 
     poi_pts_xy = []
-    poi_pts_xy.extend(pathfinding.get_corridor_center_xy(walkable_poi_mask["bridge/room"]))
-    poi_pts_xy.extend(pathfinding.get_room_center_xy(walkable_poi_mask["room"], MINIMAP_CENTER_RC))
+    poi_pts_xy.extend(map_transforms.get_corridor_center_xy(walkable_poi_mask["bridge/room"]))
+    poi_pts_xy.extend(map_transforms.get_room_center_xy(walkable_poi_mask["room"], MINIMAP_CENTER_RC))
 
-    boss_heading_xy = pathfinding.get_boss_heading_xy(game_ss, GAME_CENTER_XY)
+    boss_heading_xy = map_transforms.get_boss_heading_xy(game_ss, GAME_CENTER_XY)
     # DEBUG: Display boss heading arrow
     # debug.display_boss_heading(minimap_ss, boss_heading_xy)
 
