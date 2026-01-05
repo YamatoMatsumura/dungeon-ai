@@ -25,10 +25,13 @@ def get_next_heading(room_vectors, boss_heading, i):
 
 def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
+    # erode map to account for slight inaccuracies in movement
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    eroded_walkable = cv2.erode(walkable_mask_small, kernel)
+
     # walkable_mask has 0 as unwalkable, 255 as walkable
     # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
-    cost_array = np.where(walkable_mask_small, 1, 255)
-
+    cost_array = np.where(eroded_walkable, 1, 255)
 
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
@@ -36,7 +39,7 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")
@@ -123,16 +126,33 @@ def parse_new_map(new_walkable_map):
         result = cv2.matchTemplate(padded_current_map, new_walkable_map, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
+        # safety check for low template matching confidence
         if max_val < 0.85:
             print(f"Confidence of {max_val} is bad...")
             input()
+
+        # calculate how much we moved
         start_x, start_y = max_loc
+        moved_x = start_x - minimap_w
+        moved_y = start_y - minimap_h
+        Global.origin_offset_xy += np.array([moved_x, moved_y])
 
-        new_x = start_x - minimap_w
-        new_y = start_y - minimap_h
+        # around the player, always prefer what we had previously
+        center_h = minimap_h // 2
+        center_w = minimap_w // 2
+        arrow_top = 34
+        arrow_bot = 18
+        arrow_left = 14
+        arrow_right = 14
+        new_walkable_map[
+            center_h - arrow_top : center_h + arrow_bot,
+            center_w - arrow_left : center_w + arrow_right
+        ] = Global.current_map[
+            center_h - arrow_top + moved_y : center_h + arrow_bot + moved_y,
+            center_w - arrow_left + moved_x : center_w + arrow_right + moved_x
+        ]
 
-        Global.origin_offset_xy += np.array([new_x, new_y])
-
+        # update the current map
         Global.current_map = new_walkable_map
 
     # add current loc to visited set

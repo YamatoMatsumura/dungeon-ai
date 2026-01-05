@@ -86,8 +86,9 @@ while True:
         pathfinding.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
 
     poi_pts_xy = []
-    poi_pts_xy.extend(map_transforms.get_corridor_center_xy(walkable_poi_mask["bridge/room"]))
-    poi_pts_xy.extend(map_transforms.get_room_center_xy(walkable_poi_mask["room"], MINIMAP_CENTER_RC))
+    poi_relevant_masks = ["bridge/room", "room", "carpet", "ship_room"]
+    for relevant_mask in poi_relevant_masks:
+        poi_pts_xy.extend(map_transforms.get_mask_centers_xy(walkable_poi_mask[relevant_mask]))
 
     boss_heading_xy = map_transforms.get_boss_heading_xy(game_ss, GAME_CENTER_XY)
     # DEBUG: Display boss heading arrow
@@ -112,7 +113,7 @@ while True:
         if pathfinding.filter_visited_pois(POI_VISIT_RADIUS):
             Global.poi_pts_xy
 
-    debug.display_global_pois()
+    # debug.display_global_pois()
 
     # loop over options in case one poi is unreachable right now
     for i in range(len(poi_pts_xy)):

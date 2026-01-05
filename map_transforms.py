@@ -1,6 +1,22 @@
 import cv2
 import numpy as np
 
+def get_mask_centers_xy(mask):
+    num_labels, labels = cv2.connectedComponents(mask, connectivity=4)
+
+    centroids = []
+    for label in range(1, num_labels):
+
+        mask = (labels == label).astype(np.uint8)
+        M = cv2.moments(mask)
+
+        if M["m00"] != 0:
+            center_x = M["m10"] / M["m00"]
+            center_y = M["m01"] / M["m00"]
+            centroids.append(np.array([center_x, center_y]))
+
+    return centroids
+
 def get_corridor_center_xy(corridor_mask):
     num_labels, labels = cv2.connectedComponents(corridor_mask, connectivity=4)
 
