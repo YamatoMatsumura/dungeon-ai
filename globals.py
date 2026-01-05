@@ -4,6 +4,7 @@ class Global:
     poi_pts_xy = set()
     origin_offset_xy = np.array([0,0])
     current_map = np.zeros((1,1))
+    visited_xy = set()
 
     MAP_SHRINK_SCALE = 2
     KEYPRESS_DURATION = 0

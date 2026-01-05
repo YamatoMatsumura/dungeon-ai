@@ -13,6 +13,11 @@ time.sleep(2)
 
 pathfinding.initialize_pixels_per_step()
 pathfinding.check_min_duration()
+
+MOVE_DISTANCE_STEPS = 10  # number of steps the player moves between game states
+POI_PROXIMITY_RADIUS = 15 # proximity distance two pois can be
+POI_VISIT_RADIUS = 15 # proximity distance for a poi to be counted as visited by the player
+
 while True:
 
     with mss.mss() as sct:
@@ -49,7 +54,6 @@ while True:
 
     # update current location based on new mask
     pathfinding.parse_new_map(combined_poi_mask)
-    print(f"Current location offset from 0,0 is: {Global.origin_offset_xy}")
 
     # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
     poi_masks["room"] = mask.get_room_mask(combined_poi_mask)
@@ -94,16 +98,20 @@ while True:
     for pt in poi_pts_xy:
         poi_vec_xy.append(pathfinding.convert_pt_to_vec(pt, MINIMAP_CENTER_XY))
     # DEBUG: Display poi vectors
-    debug.display_poi_vectors(minimap_ss, poi_vec_xy)
+    # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
+    # parse new pois to determine if they should be added to global pois
     for pt in poi_pts_xy:
         adjusted_x = int(pt[0] + Global.origin_offset_xy[0])
         adjusted_y = int(pt[1] + Global.origin_offset_xy[1])
 
-        # check whether to add this new poi to global pois based on distance
-        pathfinding.parse_new_poi((adjusted_x, adjusted_y), max_radius=15)
+        pathfinding.parse_new_poi((adjusted_x, adjusted_y), POI_PROXIMITY_RADIUS)
+    
+    # filter out already visited pois
+    for poi_xy in Global.poi_pts_xy.copy():
+        if pathfinding.filter_visited_pois(POI_VISIT_RADIUS):
+            Global.poi_pts_xy
 
-    # print(f"global_pois after add: {Global.poi_pts_xy}")
     debug.display_global_pois()
 
     # loop over options in case one poi is unreachable right now
@@ -133,7 +141,7 @@ while True:
         )
 
         if cost is not None:
-            pathfinding.move_along_path(path, steps=20, scale=Global.MAP_SHRINK_SCALE)
+            pathfinding.move_along_path(path, steps=10, scale=Global.MAP_SHRINK_SCALE)
             break
         elif i == len(poi_pts_xy) - 1:
             debug.display_mask("totally stuck!!", debug.resize_print(walkable_mask_small, 5))

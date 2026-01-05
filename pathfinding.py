@@ -131,21 +131,33 @@ def parse_new_map(new_walkable_map):
         new_x = start_x - minimap_w
         new_y = start_y - minimap_h
 
-
         Global.origin_offset_xy += np.array([new_x, new_y])
 
         Global.current_map = new_walkable_map
 
-def parse_new_poi(new_poi, max_radius):
+    # add current loc to visited set
+    center_xy = get_center_xy(new_walkable_map)
+    Global.visited_xy.add(tuple(center_xy + Global.origin_offset_xy))
 
-    for x, y in Global.poi_pts_xy:
+def parse_new_poi(new_poi, poi_proximity_radius):
 
-        # if this global poi is nearby the new poi
-        if np.linalg.norm((x - new_poi[0], y - new_poi[1])) < max_radius:
+    # make sure new poi isn't too close to an existing poi
+    for existing_poi in Global.poi_pts_xy:
+        distance = np.linalg.norm([existing_poi[0] - new_poi[0], existing_poi[1] - new_poi[1]])
+        if distance < poi_proximity_radius:
                 return
 
     # else, add the new poi to globals
     Global.poi_pts_xy.add(new_poi)
+
+def filter_visited_pois(poi_visited_radius):
+    global_pois_copy = Global.poi_pts_xy.copy()
+    for poi_xy in global_pois_copy:
+        for visited_xy in Global.visited_xy:
+            distance = np.linalg.norm([poi_xy[0] - visited_xy[0], poi_xy[1] - visited_xy[1]])
+            if distance < poi_visited_radius:
+                Global.poi_pts_xy.remove(poi_xy)
+                break
 
 def is_reachable(source, target, global_map, max_radius=5): 
     queue = deque()

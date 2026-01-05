@@ -121,6 +121,7 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
 
 def display_global_pois():
     pois = np.array(list(Global.poi_pts_xy), dtype=int)
+    visited = np.array(list(Global.visited_xy), dtype=int)
 
     # Include origin and manual point in bounds
     extra_points = np.array([
@@ -172,6 +173,12 @@ def display_global_pois():
             1,
             cv2.LINE_AA
         )
+    
+    # Draw visited locs
+    for x, y in visited:
+        px = x + origin_x
+        py = y + origin_y
+        cv2.circle(img, (px, py), 15, (60, 28, 100), 2)
 
     # Draw origin
     cv2.circle(img, (origin_x, origin_y), 6, (255, 0, 0), -1)
