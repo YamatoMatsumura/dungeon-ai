@@ -1,13 +1,16 @@
 import numpy as np
+import cv2
 
 class Global:
-    poi_pts_xy = set()
+    poi_pts_xy = []
     origin_offset_xy = np.array([0,0])
     current_map = np.zeros((1,1))
-    visited_xy = set()
+    visited_xy = []
+    current_target_pt_xy = None
 
     MAP_SHRINK_SCALE = 2
     KEYPRESS_DURATION = 0
+    PLAYER_OFFSET_XY = np.array([260, 266])
 
     @classmethod
     def get_map_dim_xy(cls):
@@ -16,3 +19,49 @@ class Global:
     @classmethod
     def get_map_dim_rc(cls):
         return (cls.map.shape[0], cls.map.shape[1])
+
+    @classmethod
+    def update_target_poi(cls, boss_heading_vec_xy):
+        center = Global.PLAYER_OFFSET_XY + Global.origin_offset_xy
+
+        # turn global poi pts into vecs
+        pois_vec_xy = []
+        for xy in Global.poi_pts_xy:
+            pois_vec_xy.append(xy - center)
+
+        img = np.zeros((600, 600, 3), dtype=np.uint8)
+        for v in pois_vec_xy:
+            end = (center + v).astype(int)
+
+            cv2.arrowedLine(
+                img,
+                center,
+                tuple(end),
+                color=(0, 255, 0),   # green
+                thickness=2,
+                tipLength=0.2
+            )
+        cv2.arrowedLine(
+            img,
+            center,
+            tuple(center + boss_heading_vec_xy),
+            color=(255,0,0),
+            thickness=2,
+            tipLength=0.2
+        )
+
+        cv2.imshow("POI Vectors", img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        # If no pois, run towards boss
+        if len(Global.poi_pts_xy) == 0:
+            print("No pois found, running towards boss")
+            return boss_heading_vec_xy
+
+        dots = [np.dot(r/np.linalg.norm(r), boss_heading_vec_xy) for r in pois_vec_xy]
+        best_index = np.argmax(dots)
+        best_vec_xy = pois_vec_xy[best_index]
+        best_pt_xy = best_vec_xy + center
+
+        Global.current_target_pt_xy = best_pt_xy

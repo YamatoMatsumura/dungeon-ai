@@ -90,7 +90,7 @@ while True:
     for relevant_mask in poi_relevant_masks:
         poi_pts_xy.extend(map_transforms.get_mask_centers_xy(walkable_poi_mask[relevant_mask]))
 
-    boss_heading_xy = map_transforms.get_boss_heading_xy(game_ss, GAME_CENTER_XY)
+    boss_heading_vec_xy = map_transforms.get_boss_heading_vec_xy(game_ss, GAME_CENTER_XY)
     # DEBUG: Display boss heading arrow
     # debug.display_boss_heading(minimap_ss, boss_heading_xy)
 
@@ -109,40 +109,35 @@ while True:
         pathfinding.parse_new_poi((adjusted_x, adjusted_y), POI_PROXIMITY_RADIUS)
     
     # filter out already visited pois
-    for poi_xy in Global.poi_pts_xy.copy():
-        if pathfinding.filter_visited_pois(POI_VISIT_RADIUS):
-            Global.poi_pts_xy
+    pathfinding.filter_visited_pois(POI_VISIT_RADIUS)
 
-    # debug.display_global_pois()
+    if not any(np.array_equal(Global.current_target_pt_xy, p) for p in Global.poi_pts_xy):
+        Global.update_target_poi(boss_heading_vec_xy)
+    
+    print(f"Current target poi pt is {Global.current_target_pt_xy}")
 
-    # loop over options in case one poi is unreachable right now
-    for i in range(len(poi_pts_xy)):
+    debug.display_global_pois()
 
-        # find next best room heading
-        best_poi_vec_xy = pathfinding.get_next_heading(poi_vec_xy, boss_heading_xy, i)
-        # DEBUG: Display best room vector
-        # debug.display_ideal_room(minimap_ss, poi_vec_xy, best_poi_vec_xy)
+    # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
+    walkable_mask_small = mask.downsample_mask(walkable_mask)
+    # DEBUG: display smaller map to double check resolution after shrinking
+    # debug.display_mask("walkable_mask", walkable_mask)
+    # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, Global.MAP_SHRINK_SCALE))
 
-        # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
-        walkable_mask_small = mask.downsample_mask(walkable_mask)
-        # DEBUG: display smaller map to double check resolution after shrinking
-        # debug.display_mask("walkable_mask", walkable_mask)
-        # debug.display_mask("downsampled_walkable_mask", debug.resize_print(walkable_mask_small, Global.MAP_SHRINK_SCALE))
+    # convert the global current target poi to be with respect to the current map
+    adjusted_target_pt_xy = Global.current_target_pt_xy - Global.origin_offset_xy
+    
+    # convert target poi to rc
+    adjusted_target_pt_rc = pathfinding.convert_pt_xy_rc(adjusted_target_pt_xy)
 
-        # convert next heading vec xy to pt
-        best_poi_pts_xy = pathfinding.convert_vec_to_pt(best_poi_vec_xy, MINIMAP_CENTER_XY)
+    path, cost = pathfinding.get_shortest_path(
+        walkable_mask_small, 
+        start_rc=pathfinding.downscale_pt(MINIMAP_CENTER_RC), 
+        end_rc=pathfinding.downscale_pt(adjusted_target_pt_rc)
+    )
 
-        # downscale pt to match smaller map indices
-        best_poi_pts_rc = pathfinding.swap_pt_xy_rc(best_poi_pts_xy)
-
-        path, cost = pathfinding.get_shortest_path(
-            walkable_mask_small, 
-            start_rc=pathfinding.downscale_pt(MINIMAP_CENTER_RC), 
-            end_rc=pathfinding.downscale_pt(best_poi_pts_rc)
-        )
-
-        if cost is not None:
-            pathfinding.move_along_path(path, steps=10, scale=Global.MAP_SHRINK_SCALE)
-            break
-        elif i == len(poi_pts_xy) - 1:
-            debug.display_mask("totally stuck!!", debug.resize_print(walkable_mask_small, 5))
+    if cost is not None:
+        pathfinding.move_along_path(path, steps=10, scale=Global.MAP_SHRINK_SCALE)
+    else:
+        print("returned cost was None")
+        input()

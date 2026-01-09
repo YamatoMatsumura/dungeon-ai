@@ -13,16 +13,6 @@ from globals import Global
 
 MIN_KEYPRESS_DURATION = None
 
-def get_next_heading(room_vectors, boss_heading, i):
-
-    # If no rooms seen, run towards boss
-    if len(room_vectors) == 0:
-        return boss_heading
-
-    dots = [np.dot(r/np.linalg.norm(r), boss_heading) for r in room_vectors]
-    dots = np.argsort(dots)[::-1]
-    return room_vectors[dots[i]]
-
 def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     # erode map to account for slight inaccuracies in movement
@@ -33,13 +23,17 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
     # 255 marked as true so walkable is 1, 0 is false so unwalkable is np.inf
     cost_array = np.where(eroded_walkable, 1, 255)
 
+    # ensure end_rc is within bounds of the map
+    h, w = walkable_mask_small.shape
+    end_rc = np.clip(end_rc, [0, 0], [h - 1, w - 1])
+
     # check if current end point is unwalkable
     if walkable_mask_small[end_rc[0], end_rc[1]] == 0:
         end_rc = get_nearest_walkable_rc(walkable_mask_small, end_rc)
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")
@@ -157,7 +151,7 @@ def parse_new_map(new_walkable_map):
 
     # add current loc to visited set
     center_xy = get_center_xy(new_walkable_map)
-    Global.visited_xy.add(tuple(center_xy + Global.origin_offset_xy))
+    Global.visited_xy.append(tuple(center_xy + Global.origin_offset_xy))
 
 def parse_new_poi(new_poi, poi_proximity_radius):
 
@@ -168,7 +162,7 @@ def parse_new_poi(new_poi, poi_proximity_radius):
                 return
 
     # else, add the new poi to globals
-    Global.poi_pts_xy.add(new_poi)
+    Global.poi_pts_xy.append(new_poi)
 
 def filter_visited_pois(poi_visited_radius):
     global_pois_copy = Global.poi_pts_xy.copy()
@@ -226,7 +220,7 @@ def get_center_xy(map):
     return np.array([map.shape[1] // 2 - 1, map.shape[0] // 2])
 
 def downscale_pt(pt):
-    return (int(pt[0] // Global.MAP_SHRINK_SCALE), int(pt[1] // Global.MAP_SHRINK_SCALE))
+    return np.array([int(pt[0] // Global.MAP_SHRINK_SCALE), int(pt[1] // Global.MAP_SHRINK_SCALE)])
 
 def convert_pt_to_vec(pt, center):
     return pt - center
@@ -234,8 +228,8 @@ def convert_pt_to_vec(pt, center):
 def convert_vec_to_pt(vec, center):
     return vec + center
 
-def swap_pt_xy_rc(pt):
-    return (pt[1], pt[0])
+def convert_pt_xy_rc(pt):
+    return np.array([pt[1], pt[0]])
 
 def initialize_pixels_per_step():
     lower_bound = None

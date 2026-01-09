@@ -162,7 +162,10 @@ def display_global_pois():
         px = x + origin_x
         py = y + origin_y
 
-        cv2.circle(img, (px, py), 4, (0, 0, 255), -1)
+        if Global.current_target_pt_xy[0] == x and Global.current_target_pt_xy[1] == y:
+            cv2.circle(img, (px, py), 4, (0, 128, 0), -1)
+        else:
+            cv2.circle(img, (px, py), 4, (0, 0, 255), -1)
         cv2.putText(
             img,
             f"({x}, {y})",

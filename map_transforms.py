@@ -66,7 +66,7 @@ def get_room_center_xy(room_mask, player_rc):
     return centroids
 
 
-def get_boss_heading_xy(game_ss, player_xy):
+def get_boss_heading_vec_xy(game_ss, player_xy):
     template = cv2.imread('sprites/boss_icon.png', cv2.IMREAD_GRAYSCALE)
 
     game_bgr = np.array(game_ss)[:,:,:3].copy()  # MSS gives a 4th alpha channel, so shrink this down to 3 channels
