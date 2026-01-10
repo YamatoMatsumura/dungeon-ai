@@ -33,7 +33,7 @@ def get_shortest_path(walkable_mask_small, start_rc, end_rc):
 
     try:
         indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-        debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+        # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
         return indices, cost
     except ValueError:
         print("No path found")

@@ -17,6 +17,7 @@ pathfinding.check_min_duration()
 MOVE_DISTANCE_STEPS = 10  # number of steps the player moves between game states
 POI_PROXIMITY_RADIUS = 15 # proximity distance two pois can be
 POI_VISIT_RADIUS = 15 # proximity distance for a poi to be counted as visited by the player
+TARGET_POI_UPDATE_DISTANCE = 20  # if no pois exist within this distance from the current poi, the best aligned one will become the next target
 
 while True:
 
@@ -84,6 +85,7 @@ while True:
         )
 
         pathfinding.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
+        continue
 
     poi_pts_xy = []
     poi_relevant_masks = ["bridge/room", "room", "carpet", "ship_room"]
@@ -112,11 +114,9 @@ while True:
     pathfinding.filter_visited_pois(POI_VISIT_RADIUS)
 
     if not any(np.array_equal(Global.current_target_pt_xy, p) for p in Global.poi_pts_xy):
-        Global.update_target_poi(boss_heading_vec_xy)
+        Global.update_target_poi(boss_heading_vec_xy, TARGET_POI_UPDATE_DISTANCE)
     
-    print(f"Current target poi pt is {Global.current_target_pt_xy}")
-
-    debug.display_global_pois()
+    # debug.display_global_pois()
 
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
     walkable_mask_small = mask.downsample_mask(walkable_mask)
