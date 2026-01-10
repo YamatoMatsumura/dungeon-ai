@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from globals import Global
+
 def get_mask_centers_xy(mask):
     num_labels, labels = cv2.connectedComponents(mask, connectivity=4)
 
@@ -90,3 +92,21 @@ def pad_map(map):
     padded_map[height:height*2, width:width*2] = map
 
     return padded_map
+
+def get_center_rc(map):
+    return np.array([map.shape[0] // 2 - 1, map.shape[1] // 2])
+
+def get_center_xy(map):
+    return np.array([map.shape[1] // 2 - 1, map.shape[0] // 2])
+
+def downscale_pt(pt):
+    return np.array([int(pt[0] // Global.MAP_SHRINK_SCALE), int(pt[1] // Global.MAP_SHRINK_SCALE)])
+
+def convert_pt_to_vec(pt, center):
+    return pt - center
+
+def convert_vec_to_pt(vec, center):
+    return vec + center
+
+def convert_pt_xy_rc(pt):
+    return np.array([pt[1], pt[0]])

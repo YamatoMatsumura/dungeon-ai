@@ -14,7 +14,6 @@ def get_poi_masks(minimap_ss):
         "player": np.array([0, 0, 255]),
         "ship_room": np.array([170, 61, 63]),
         "carpet": np.array([174, 163, 125]),
-        # "enemies": np.array([0, 255, 255]),
         "portal": np.array([120, 255, 255]),
     }
 
@@ -24,6 +23,13 @@ def get_poi_masks(minimap_ss):
         poi_masks[name] = mask
     
     return poi_masks
+
+def get_enemies_mask(minimap_ss):
+    hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
+    enemies = np.array([0, 255, 255])
+
+    mask = cv2.inRange(hsv_map, enemies, enemies)
+    return mask
 
 def combine_masks(masks, shape):
     combined_mask = np.zeros(shape, dtype=np.uint8)

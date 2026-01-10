@@ -119,7 +119,7 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def display_global_pois():
+def display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE):
     pois = np.array(list(Global.poi_pts_xy), dtype=int)
     visited = np.array(list(Global.visited_xy), dtype=int)
 
@@ -181,7 +181,7 @@ def display_global_pois():
     for x, y in visited:
         px = x + origin_x
         py = y + origin_y
-        cv2.circle(img, (px, py), 15, (60, 28, 100), 2)
+        cv2.circle(img, (px, py), POI_VISIT_RADIUS, (60, 28, 100), 2)
 
     # Draw origin
     cv2.circle(img, (origin_x, origin_y), 6, (255, 0, 0), -1)
@@ -205,8 +205,10 @@ def display_global_pois():
         -1
     )
 
+    # draw current location
     offset_x, offset_y = Global.origin_offset_xy
     cv2.circle(img, (offset_x + mx + origin_x, offset_y + my + origin_y), 6, (255, 0, 0), -1)
+    cv2.circle(img, (offset_x + mx + origin_x, offset_y + my + origin_y), TARGET_POI_UPDATE_DISTANCE, (255, 0, 255), 2)  # for nearby poi finding
     cv2.putText(
         img,
         f"({offset_x}, {offset_y})",
