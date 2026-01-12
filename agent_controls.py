@@ -9,6 +9,9 @@ from pathfinding import get_nearest_target_rc
 from key_press import press_keys, VK_CODES
 from globals import Global
 import map_utils
+import pathfinding
+import debug_prints as debug
+import color_mask as mask
 
 def initialize_pixels_per_step():
     lower_bound = None
@@ -141,11 +144,11 @@ def move_along_path(path, steps, scale=1, slower_movement_adjustment=1):
             keys_to_press.append(VK_CODES[k])
         press_keys(keys_to_press, duration=Global.MIN_KEYPRESS_DURATION*count*scale*slower_movement_adjustment)
 
-def aim_nearest_enemy(mask, player_loc_rc, game_center_xy):
+def aim_nearest_enemy(enemies_mask, player_loc_rc, game_center_xy):
     # manual player loc adjust since weapon fires a little bit above center
     player_loc_rc[0] += 5
 
-    nearest_enemy_pt_rc = get_nearest_target_rc(mask, player_loc_rc)
+    nearest_enemy_pt_rc = get_nearest_target_rc(enemies_mask, player_loc_rc)
     nearest_enemy_pt_xy = map_utils.convert_pt_xy_rc(nearest_enemy_pt_rc)
     player_loc_xy = map_utils.convert_pt_xy_rc(player_loc_rc)
     nearest_enemy_vec_xy = map_utils.convert_pt_to_vec(nearest_enemy_pt_xy, player_loc_xy)
@@ -157,3 +160,15 @@ def aim_nearest_enemy(mask, player_loc_rc, game_center_xy):
     pyautogui.moveTo(aim_loc_xy[0], aim_loc_xy[1])
 
     return
+
+def shadow_nearest_enemy(enemies_mask, player_loc_rc, map, move_distance):
+    nearest_enemy_pt_rc = get_nearest_target_rc(enemies_mask, player_loc_rc)
+
+    path, cost = pathfinding.get_shortest_path(
+        mask.downsample_mask(map),
+        start_rc=map_utils.downscale_pt(player_loc_rc), 
+        end_rc=map_utils.downscale_pt(nearest_enemy_pt_rc)
+    )
+    # debug.display_pathfinding(mask.downsample_mask(map), path, map_utils.downscale_pt(player_loc_rc), map_utils.downscale_pt(nearest_enemy_pt_rc))
+
+    move_along_path(path, steps=move_distance)

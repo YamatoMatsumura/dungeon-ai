@@ -92,11 +92,23 @@ while True:
 
         control.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
         continue
+ 
+    if Global.IN_BOSS_ROOM:
+        control.shadow_nearest_enemy(enemies_mask, MINIMAP_CENTER_RC, combined_poi_mask, MOVE_DISTANCE_STEPS)
+
+        continue
 
     poi_pts_xy = []
     poi_relevant_masks = ["bridge/room", "room", "carpet", "ship_room"]
     for relevant_mask in poi_relevant_masks:
-        poi_pts_xy.extend(map_utils.get_mask_centers_xy(walkable_poi_mask[relevant_mask]))
+
+        # carpet corresponds to boss room
+        boss_check = False
+        if relevant_mask == "carpet":
+            boss_check = True
+
+        poi_pts_xy.extend(map_utils.get_mask_centers_xy(walkable_poi_mask[relevant_mask], boss_check))
+
 
     boss_heading_vec_xy = map_utils.get_boss_heading_vec_xy(game_ss, GAME_CENTER_XY)
     # DEBUG: Display boss heading arrow
@@ -115,10 +127,11 @@ while True:
         adjusted_y = int(pt[1] + Global.origin_offset_xy[1])
 
         pathfinding.parse_new_poi((adjusted_x, adjusted_y), POI_PROXIMITY_RADIUS)
-    
+
     # filter out already visited pois
     pathfinding.filter_visited_pois(POI_VISIT_RADIUS)
 
+    # update the global target poi if needed
     if not any(np.array_equal(Global.current_target_pt_xy, p) for p in Global.poi_pts_xy):
         Global.update_target_poi(boss_heading_vec_xy, TARGET_POI_UPDATE_DISTANCE)
     

@@ -3,7 +3,7 @@ import numpy as np
 
 from globals import Global
 
-def get_mask_centers_xy(mask):
+def get_mask_centers_xy(mask, boss_check=False):
     num_labels, labels = cv2.connectedComponents(mask, connectivity=4)
 
     centroids = []
@@ -13,9 +13,14 @@ def get_mask_centers_xy(mask):
         M = cv2.moments(mask)
 
         if M["m00"] != 0:
-            center_x = M["m10"] / M["m00"]
-            center_y = M["m01"] / M["m00"]
+            center_x = int(M["m10"] / M["m00"])
+            center_y = int(M["m01"] / M["m00"])
             centroids.append(np.array([center_x, center_y]))
+
+            # note down boss location
+            if boss_check and not Global.BOSS_FOUND:
+                Global.BOSS_LOC = np.array([center_x, center_y]) + Global.origin_offset_xy
+                Global.BOSS_FOUND = True
 
     return centroids
 

@@ -11,6 +11,10 @@ class Global:
     KEYPRESS_DURATION = 0
     PLAYER_OFFSET_XY = np.array([260, 266])
 
+    BOSS_LOC = np.array([])
+    BOSS_FOUND = False
+    IN_BOSS_ROOM = False
+
     @classmethod
     def get_map_dim_xy(cls):
         return (cls.map.shape[1], cls.map.shape[0])

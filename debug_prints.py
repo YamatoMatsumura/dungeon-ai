@@ -162,8 +162,12 @@ def display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE):
         px = x + origin_x
         py = y + origin_y
 
+        # draw current target poi's in dark green
         if Global.current_target_pt_xy[0] == x and Global.current_target_pt_xy[1] == y:
             cv2.circle(img, (px, py), 4, (0, 128, 0), -1)
+        # draw boss location in pink
+        elif Global.BOSS_LOC.size != 0 and Global.BOSS_LOC[0] == x and Global.BOSS_LOC[1] == y:
+            cv2.circle(img, (px, py), 4, (203, 192, 255), -1)
         else:
             cv2.circle(img, (px, py), 4, (0, 0, 255), -1)
         cv2.putText(

@@ -62,7 +62,7 @@ def parse_new_map(new_walkable_map):
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
         # safety check for low template matching confidence
-        if max_val < 0.85:
+        if max_val < 0.80:
             print(f"Confidence of {max_val} is bad...")
             input()
 
@@ -96,6 +96,16 @@ def parse_new_map(new_walkable_map):
 
 def parse_new_poi(new_poi, poi_proximity_radius):
 
+    # don't add it if it's already in the global pois
+    for poi in Global.poi_pts_xy:
+        if poi == new_poi:
+            return
+
+    # always add the boss location as a poi
+    if Global.BOSS_FOUND and (new_poi == Global.BOSS_LOC).all():
+        Global.poi_pts_xy.append(new_poi)
+        return
+
     # make sure new poi isn't too close to an existing poi
     for existing_poi in Global.poi_pts_xy:
         distance = np.linalg.norm([existing_poi[0] - new_poi[0], existing_poi[1] - new_poi[1]])
@@ -111,6 +121,12 @@ def filter_visited_pois(poi_visited_radius):
         for visited_xy in Global.visited_xy:
             distance = np.linalg.norm([poi_xy[0] - visited_xy[0], poi_xy[1] - visited_xy[1]])
             if distance < poi_visited_radius:
+
+                # if boss loc is about to be counted as visited
+                if Global.BOSS_FOUND and (poi_xy == Global.BOSS_LOC).all():
+                    Global.IN_BOSS_ROOM = True
+                    print("----------------About to mark boss loc as visited-----------------")
+
                 Global.poi_pts_xy.remove(poi_xy)
                 break
 
