@@ -92,8 +92,21 @@ while True:
 
         control.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
         continue
- 
+
     if Global.IN_BOSS_ROOM:
+        if not np.all(poi_masks["portal"] == 0):
+            portal_loc_xy = map_utils.get_mask_centers_xy(poi_masks["portal"])
+            portal_loc_rc = map_utils.convert_pt_xy_rc(portal_loc_xy[0])
+            path, cost = pathfinding.get_shortest_path(
+                mask.downsample_mask(walkable_mask),
+                start_rc=map_utils.downscale_pt(MINIMAP_CENTER_RC),
+                end_rc=map_utils.downscale_pt(portal_loc_rc)
+            )
+
+            control.move_along_path(path, steps=4, scale=Global.MAP_SHRINK_SCALE)
+            control.press_f()
+            continue
+            
         control.shadow_nearest_enemy(enemies_mask, MINIMAP_CENTER_RC, combined_poi_mask, MOVE_DISTANCE_STEPS)
 
         continue
@@ -135,7 +148,7 @@ while True:
     if not any(np.array_equal(Global.current_target_pt_xy, p) for p in Global.poi_pts_xy):
         Global.update_target_poi(boss_heading_vec_xy, TARGET_POI_UPDATE_DISTANCE)
     
-    debug.display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE)
+    # debug.display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE)
 
     # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
     walkable_mask_small = mask.downsample_mask(walkable_mask)

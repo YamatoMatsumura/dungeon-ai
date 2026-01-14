@@ -12,6 +12,7 @@ def get_poi_masks(minimap_ss):
         "sand_room": np.array([16, 81, 163]),
         "bridge/room": np.array([12, 98, 120]),
         "player": np.array([0, 0, 255]),
+        # "enemies": np.array([0, 255, 255]),
         "ship_room": np.array([170, 61, 63]),
         "carpet": np.array([174, 163, 125]),
         "portal": np.array([120, 255, 255]),

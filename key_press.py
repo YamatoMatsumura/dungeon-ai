@@ -22,6 +22,7 @@ VK_CODES = {
     "a": 0x41,
     "s": 0x53,
     "d": 0x44,
+    "f": 0x46,
     "space": 0x20,
     "shift": 0x10
 }

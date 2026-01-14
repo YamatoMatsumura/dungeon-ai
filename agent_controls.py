@@ -54,7 +54,7 @@ def initialize_pixels_per_step():
                 keypress_duration += 0.001
             
             time.sleep(0.01)
-    
+
     Global.MIN_KEYPRESS_DURATION = (lower_bound + 0.25*(upper_bound + lower_bound))  # bias towards lower end of bound
     print(f"Found min keypress was {Global.MIN_KEYPRESS_DURATION}")
 
@@ -143,6 +143,9 @@ def move_along_path(path, steps, scale=1, slower_movement_adjustment=1):
         for k in key:
             keys_to_press.append(VK_CODES[k])
         press_keys(keys_to_press, duration=Global.MIN_KEYPRESS_DURATION*count*scale*slower_movement_adjustment)
+
+def press_f():
+    press_keys([VK_CODES['f']])
 
 def aim_nearest_enemy(enemies_mask, player_loc_rc, game_center_xy):
     # manual player loc adjust since weapon fires a little bit above center
