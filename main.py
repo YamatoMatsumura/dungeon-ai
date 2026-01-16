@@ -93,23 +93,35 @@ while True:
         control.move_along_path(path, steps=len(path), slower_movement_adjustment=2)
         continue
 
-    if Global.IN_BOSS_ROOM:
-        if not np.all(poi_masks["portal"] == 0):
-            portal_loc_xy = map_utils.get_mask_centers_xy(poi_masks["portal"])
-            portal_loc_rc = map_utils.convert_pt_xy_rc(portal_loc_xy[0])
-            path, cost = pathfinding.get_shortest_path(
-                mask.downsample_mask(walkable_mask),
-                start_rc=map_utils.downscale_pt(MINIMAP_CENTER_RC),
-                end_rc=map_utils.downscale_pt(portal_loc_rc)
-            )
-
-            control.move_along_path(path, steps=4, scale=Global.MAP_SHRINK_SCALE)
-            control.press_f()
-            continue
-            
+    if Global.IN_BOSS_ROOM and not Global.BOSS_SLAIN:
         control.shadow_nearest_enemy(enemies_mask, MINIMAP_CENTER_RC, combined_poi_mask, MOVE_DISTANCE_STEPS)
 
+        # check if boss has been killed
+        if not np.all(poi_masks["portal"] == 0):
+            Global.BOSS_SLAIN = True
+
         continue
+
+    # Global.IN_BOSS_ROOM = True
+    # Global.BOSS_SLAIN = True
+    if Global.IN_BOSS_ROOM and Global.BOSS_SLAIN:
+        if np.all(poi_masks["portal"] == 0):
+            control.move_random_direction(1)
+            continue
+
+        portal_loc_xy = map_utils.get_mask_centers_xy(poi_masks["portal"])
+        portal_loc_rc = map_utils.convert_pt_xy_rc(portal_loc_xy[0])
+        path, cost = pathfinding.get_shortest_path(
+            mask.downsample_mask(walkable_mask),
+            start_rc=map_utils.downscale_pt(MINIMAP_CENTER_RC),
+            end_rc=map_utils.downscale_pt(portal_loc_rc)
+        )
+
+        for i in range(len(path) - 3):
+            control.move_along_path(path[i:i+3], steps=2, scale=Global.MAP_SHRINK_SCALE)
+            control.press_f()
+        continue
+
 
     poi_pts_xy = []
     poi_relevant_masks = ["bridge/room", "room", "carpet", "ship_room"]

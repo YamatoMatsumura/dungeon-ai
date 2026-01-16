@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 from scipy import ndimage
 import pyautogui
+import random
 
 from pathfinding import get_nearest_target_rc
 from key_press import press_keys, VK_CODES
@@ -109,15 +110,15 @@ def map_delta_to_key(dr, dc):
 
 def move_along_path(path, steps, scale=1, slower_movement_adjustment=1):
     # Make sure only going at max len(path)
-    if steps > len(path):
-        steps = len(path)
+    if steps >= len(path):
+        steps = len(path) - 1
     
     key_counts = []
     last_key = None
     count = 0
-    for i in range(1, steps):
-        dr = path[i][0] - path[i-1][0]
-        dc = path[i][1] - path[i-1][1]
+    for i in range(steps):
+        dr = path[i+1][0] - path[i][0]
+        dc = path[i+1][1] - path[i][1]
 
         key = map_delta_to_key(dr, dc)
         
@@ -143,6 +144,16 @@ def move_along_path(path, steps, scale=1, slower_movement_adjustment=1):
         for k in key:
             keys_to_press.append(VK_CODES[k])
         press_keys(keys_to_press, duration=Global.MIN_KEYPRESS_DURATION*count*scale*slower_movement_adjustment)
+
+def move_random_direction(duration):
+    dir_options = [['w'], ['a'], ['s'], ['d'], ['w', 'a'], ['w', 'd'], ['s', 'a'], ['s', 'd']]
+    dir = random.choice(dir_options)
+
+    keys_to_press = []
+    for key in dir:
+        keys_to_press.append(VK_CODES[key])
+
+    press_keys(keys_to_press, duration=duration)
 
 def press_f():
     press_keys([VK_CODES['f']])

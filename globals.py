@@ -14,6 +14,7 @@ class Global:
     BOSS_LOC = np.array([])
     BOSS_FOUND = False
     IN_BOSS_ROOM = False
+    BOSS_SLAIN = False
 
     @classmethod
     def get_map_dim_xy(cls):
