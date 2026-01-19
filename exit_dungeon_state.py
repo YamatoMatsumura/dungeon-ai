@@ -6,6 +6,9 @@ from key_press import press_keys, VK_CODES
 import map_utils
 
 class ExitDungeonState(AIState):
+    def __init__(self):
+        super().__init__()
+
     def update(self, ai):
         minimap_ss = ai.take_minimap_screenshot()
 
@@ -49,7 +52,7 @@ class ExitDungeonState(AIState):
         )
 
         for i in range(len(path) - 3):
-            self._move_along_path(path[i:i+3], steps=2, scale=self.map_shrink_scale)
+            self._move_along_path(path[i:i+3], steps=2, keypress_duration=ai.KEYPRESS_DURATION, scale=self.MAP_SHRINK_SCALE)
             press_keys([VK_CODES['f']])
 
     def _move_random_direction(duration):

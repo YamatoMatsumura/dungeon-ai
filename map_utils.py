@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 
-from globals import Global
-
 def get_mask_centers_xy(mask):
     num_labels, labels = cv2.connectedComponents(mask, connectivity=4)
 
@@ -68,7 +66,7 @@ def get_room_center_xy(room_mask, player_rc):
     return centroids
 
 
-def get_boss_heading_vec_xy(game_ss, player_xy):
+def get_boss_heading_vec_xy(game_ss, game_region_center_xy):
     template = cv2.imread('sprites/boss_icon.png', cv2.IMREAD_GRAYSCALE)
 
     game_bgr = np.array(game_ss)[:,:,:3].copy()  # MSS gives a 4th alpha channel, so shrink this down to 3 channels
@@ -81,7 +79,7 @@ def get_boss_heading_vec_xy(game_ss, player_xy):
     template_height, template_width = template.shape
     template_mid = np.array([max_loc_xy[0] + template_width // 2, max_loc_xy[1] + template_height // 2])
 
-    boss_heading_vec = template_mid - player_xy
+    boss_heading_vec = template_mid - game_region_center_xy
 
     return boss_heading_vec
 
@@ -99,8 +97,8 @@ def get_center_rc(map):
 def get_center_xy(map):
     return np.array([map.shape[1] // 2 - 1, map.shape[0] // 2])
 
-def downscale_pt(pt):
-    return np.array([int(pt[0] // Global.MAP_SHRINK_SCALE), int(pt[1] // Global.MAP_SHRINK_SCALE)])
+def downscale_pt(pt, map_shrink_scale):
+    return np.array([int(pt[0] // map_shrink_scale), int(pt[1] // map_shrink_scale)])
 
 def convert_pt_to_vec(pt, center):
     return pt - center

@@ -5,6 +5,8 @@ import cv2
 
 from key_press import press_keys, VK_CODES
 from reach_boss_state import ReachBossState
+from defeat_boss_state import DefeatBossState
+from exit_dungeon_state import ExitDungeonState
 import map_utils
 
 
@@ -26,28 +28,22 @@ class DungeonAI:
 
         self.KEYPRESS_DURATION = None
         self.MINIMAP_CENTER_RC = None
+        self.MINIMAP_CENTER_XY = None
         self.GAME_REGION_CENTER_XY = None
 
         self.running = True
         self.current_state = None
 
     def start(self):
-        self.initialize()
+        self._initialize()
 
         self.current_state = ReachBossState()
         while self.running:
             self.current_state.update(self)
+
+            if self.current_state.is_done():
+                self._update_state()
                 
-    
-    def initialize(self):
-        self._initialize_keypress_duration()
-        self._check_keypress_duration_accuracy()
-
-        minimap_ss = self.take_minimap_screenshot()
-        self.MINIMAP_CENTER_RC = map_utils.get_center_rc(minimap_ss)
-        game_region_ss = self.take_game_region_screenshot()
-        self.GAME_REGION_CENTER_XY = map_utils.get_center_xy(game_region_ss)
-
     def take_minimap_screenshot(self):
         with mss.mss() as sct:
             minimap_region = {
@@ -71,6 +67,25 @@ class DungeonAI:
             game_ss = np.array(sct.grab(game_region))
         
         return game_ss
+    
+    def _update_state(self):
+        if isinstance(self.current_state, ReachBossState):
+            self.current_state = DefeatBossState()
+        elif isinstance(self.current_state, DefeatBossState):
+            self.current_state = ExitDungeonState()
+        elif isinstance(self.current_state, ExitDungeonState):
+            self.running = False
+    
+    def _initialize(self):
+        self._initialize_keypress_duration()
+        self._check_keypress_duration_accuracy()
+
+        minimap_ss = self.take_minimap_screenshot()
+        self.MINIMAP_CENTER_RC = map_utils.get_center_rc(minimap_ss)
+        self.MINIMAP_CENTER_XY = map_utils.get_center_xy(minimap_ss)
+        game_region_ss = self.take_game_region_screenshot()
+        self.GAME_REGION_CENTER_XY = map_utils.get_center_xy(game_region_ss)
+
 
     def _initialize_keypress_duration(self):
         lower_bound = None

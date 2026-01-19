@@ -14,13 +14,16 @@ class AIState:
     # serves as the main class that all states will inherit from
 
     def __init__(self):
-        self.move_distance = 10
-        self.map_shrink_scale = 2
+        self.MOVE_DISTANCE = 10
+        self.MAP_SHRINK_SCALE = 2
         self.state_done = False
 
     @abstractmethod
     def update(self, ai):
         pass
+
+    def is_done(self):
+        return self.state_done
 
     def _get_poi_masks(self, minimap_ss):
         hsv_map = cv2.cvtColor(minimap_ss, cv2.COLOR_BGR2HSV)
@@ -125,23 +128,20 @@ class AIState:
         
         return walkable_mask, walkable_poi_mask
     
-    def _fix_no_walkable(self,walkable_mask, combined_poi_mask, player_loc_rc):
-        # check if no walkable spaces
-        if np.all(walkable_mask == 0):
-            print("Found no walkable spaces")
+    def _fix_no_walkable(self, combined_poi_mask, player_loc_rc, keypress_duration):
 
-            nearest_walkable_rc = self._get_nearest_target_rc(combined_poi_mask, start_rc=player_loc_rc)
+        nearest_walkable_rc = self._get_nearest_target_rc(combined_poi_mask, start_rc=player_loc_rc)
 
-            current_map_copy = combined_poi_mask.copy()
-            current_map_copy[:, :] = 255  # convert map to all walkable
+        current_map_copy = combined_poi_mask.copy()
+        current_map_copy[:, :] = 255  # convert map to all walkable
 
-            path, cost = self._get_shortest_path(
-                current_map_copy,
-                start_rc=player_loc_rc, 
-                end_rc=nearest_walkable_rc
-            )
+        path, cost = self._get_shortest_path(
+            current_map_copy,
+            start_rc=player_loc_rc, 
+            end_rc=nearest_walkable_rc
+        )
 
-            self._move_along_path(path, steps=len(path), slower_movement_adjustment=2)
+        self._move_along_path(path, steps=len(path), keypress_duration=keypress_duration, slower_movement_adjustment=2)
 
     def _get_nearest_target_rc(self, mask, start_rc):
         # Distance transform does closest zero element for every non-zero element
@@ -244,12 +244,12 @@ class AIState:
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
         # create new mask with shrunken dimensions
-        new_H = mask.shape[0] // self.map_shrink_scale
-        new_W = mask.shape[1] // self.map_shrink_scale
+        new_H = mask.shape[0] // self.MAP_SHRINK_SCALE
+        new_W = mask.shape[1] // self.MAP_SHRINK_SCALE
         downsampled_mask = np.zeros((new_H, new_W), dtype=np.uint8)
 
         for i, cnt in enumerate(contours):
-            cnt_scaled = cnt // self.map_shrink_scale
+            cnt_scaled = cnt // self.MAP_SHRINK_SCALE
 
             # if this contours parent is -1, top level contour so fill normally
             if hierarchy[0][i][3] == -1:

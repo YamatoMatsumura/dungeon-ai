@@ -3,9 +3,12 @@ import numpy as np
 import cv2
 
 import map_utils
+import debug_prints as debug
 
 class ReachBossState(AIState):
     def __init__(self):
+        super().__init__()
+
         self.current_map = np.zeros((1,1))
         self.origin_offset_xy = np.array([0,0])
         self.visited_xy = []
@@ -22,6 +25,7 @@ class ReachBossState(AIState):
 
     def update(self, ai):
         minimap_ss = ai.take_minimap_screenshot()
+        game_region_ss = ai.take_game_region_screenshot()
 
         poi_masks = self._get_poi_masks(minimap_ss)
 
@@ -30,9 +34,10 @@ class ReachBossState(AIState):
         if np.any(enemies_mask):
             self._aim_nearest_enemy(
                 enemies_mask, 
-                player_loc_rc=ai.MINIMAP_CENTER_RC, 
+                player_loc_rc=ai.MINIMAP_CENTER_RC.copy(), 
                 game_region_center_xy=ai.GAME_REGION_CENTER_XY
             )
+        
         combined_poi_mask = self._combine_masks(poi_masks.values(), list(poi_masks.values())[0].shape)
 
         combined_poi_mask = self._fill_in_center(combined_poi_mask)
@@ -52,11 +57,21 @@ class ReachBossState(AIState):
         # for mask_name, poi_mask in poi_masks.items():
         #     debug.display_mask(mask_name, poi_mask)
 
-        walkable_mask, walkable_poi_mask = self._get_walkable_pois(combined_poi_mask, poi_masks, ai.MINIMAP_CENTER_RC)
+        walkable_mask, walkable_poi_mask = self._get_walkable_pois(combined_poi_mask, poi_masks, player_rc=ai.MINIMAP_CENTER_RC)
+        # DEBUG: display walkable masks
+        # debug.display_mask("walkable_map", walkable_mask)
+        # for mask_name, poi_mask in walkable_poi_mask.items():
+        #     debug.display_mask(f"{mask_name}_walkable", poi_mask)
 
         # check if no walkable spaces
         if np.all(walkable_mask == 0):
-            self._fix_no_walkable(walkable_mask, combined_poi_mask, ai.MINIMAP_CENTER_RC)
+            self._fix_no_walkable(
+                combined_poi_mask, 
+                player_loc_rc=ai.MINIMAP_CENTER_RC,
+                keypress_duration=ai.KEYPRESS_DURATION
+            
+            )
+            return
 
 
         poi_pts_xy = []
@@ -68,15 +83,14 @@ class ReachBossState(AIState):
         # check if we found the boss loc
         self._boss_found_check(walkable_poi_mask["carpet"])
 
-        game_region_ss = ai.take_game_region_screenshot()
-        boss_heading_vec_xy = map_utils.get_boss_heading_vec_xy(game_region_ss, ai.GAME_CENTER_XY)
+        boss_heading_vec_xy = map_utils.get_boss_heading_vec_xy(game_region_ss, ai.GAME_REGION_CENTER_XY)
         # DEBUG: Display boss heading arrow
-        # debug.display_boss_heading(minimap_ss, boss_heading_xy)
+        # debug.display_boss_heading(minimap_ss, boss_heading_vec_xy)
 
         # convert poi pts to vecs
         poi_vec_xy = []
         for pt in poi_pts_xy:
-            poi_vec_xy.append(map_utils.convert_pt_to_vec(pt, ai.MINIMAP_CENTER_XY))
+            poi_vec_xy.append(map_utils.convert_pt_to_vec(pt, center=ai.MINIMAP_CENTER_XY))
         # DEBUG: Display poi vectors
         # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
@@ -85,16 +99,16 @@ class ReachBossState(AIState):
             adjusted_x = int(pt[0] + self.origin_offset_xy[0])
             adjusted_y = int(pt[1] + self.origin_offset_xy[1])
 
-            self._parse_new_poi((adjusted_x, adjusted_y), self.poi_proximity_radius)
+            self._parse_new_poi((adjusted_x, adjusted_y))
 
         # filter out already visited pois
-        self._filter_visited_pois(self.poi_visit_radius)
+        self._filter_visited_pois()
 
         # update the global target poi if needed
         if not any(np.array_equal(self.current_target_pt_xy, p) for p in self.poi_pts_xy):
-            self._update_target_poi(boss_heading_vec_xy, self.target_poi_update_distance)
+            self._update_target_poi(boss_heading_vec_xy, player_loc_xy=ai.MINIMAP_CENTER_XY)
         
-        # debug.display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE)
+        # debug.display_global_pois(self)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
         walkable_mask_small = self._downsample_mask(walkable_mask)
@@ -110,12 +124,12 @@ class ReachBossState(AIState):
 
         path, cost = self._get_shortest_path(
             walkable_mask_small, 
-            start_rc=map_utils.downscale_pt(ai.MINIMAP_CENTER_RC), 
-            end_rc=map_utils.downscale_pt(adjusted_target_pt_rc)
+            start_rc=map_utils.downscale_pt(ai.MINIMAP_CENTER_RC, self.MAP_SHRINK_SCALE), 
+            end_rc=map_utils.downscale_pt(adjusted_target_pt_rc, self.MAP_SHRINK_SCALE)
         )
 
         if cost is not None:
-            self._move_along_path(path, steps=10, scale=self.map_shrink_scale)
+            self._move_along_path(path, steps=10, keypress_duration=ai.KEYPRESS_DURATION, scale=self.MAP_SHRINK_SCALE)
         else:
             print("returned cost was None")
             input()
@@ -225,12 +239,12 @@ class ReachBossState(AIState):
                     self.poi_pts_xy.remove(poi_xy)
                     break
     
-    def _update_target_poi(self, boss_heading_vec_xy, closest_poi_distance, player_loc_xy):
+    def _update_target_poi(self, boss_heading_vec_xy, player_loc_xy):
             center_xy = player_loc_xy + self.origin_offset_xy
 
             # check if there's a nearby poi
             for xy in self.poi_pts_xy:
-                if np.linalg.norm(xy - center_xy) < closest_poi_distance:
+                if np.linalg.norm(xy - center_xy) < self.target_poi_update_distance:
                     print(f"Found nearby poi of {xy}. Aiming for this instead of best aligned")
                     self.current_target_pt_xy = xy
                     return

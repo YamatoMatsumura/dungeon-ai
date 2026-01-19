@@ -3,10 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.graph import route_through_array
 
-
-import color_mask as mask
-from globals import Global
-
 def display_BGR(ss):
     cv2.imshow("minimap", cv2.cvtColor(ss, cv2.COLOR_BGRA2BGR))
     cv2.waitKey(0)
@@ -119,9 +115,9 @@ def display_pathfinding(walkable_mask_small, path_indices, player_rc, end_rc):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE):
-    pois = np.array(list(Global.poi_pts_xy), dtype=int)
-    visited = np.array(list(Global.visited_xy), dtype=int)
+def display_global_pois(state):
+    pois = np.array(list(state.poi_pts_xy), dtype=int)
+    visited = np.array(list(state.visited_xy), dtype=int)
 
     # Include origin and manual point in bounds
     extra_points = np.array([
@@ -163,10 +159,10 @@ def display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE):
         py = y + origin_y
 
         # draw current target poi's in dark green
-        if Global.current_target_pt_xy[0] == x and Global.current_target_pt_xy[1] == y:
+        if state.current_target_pt_xy[0] == x and state.current_target_pt_xy[1] == y:
             cv2.circle(img, (px, py), 4, (0, 128, 0), -1)
         # draw boss location in pink
-        elif Global.BOSS_LOC.size != 0 and Global.BOSS_LOC[0] == x and Global.BOSS_LOC[1] == y:
+        elif state.boss_loc is not None and state.boss_loc[0] == x and state.boss_loc[1] == y:
             cv2.circle(img, (px, py), 4, (203, 192, 255), -1)
         else:
             cv2.circle(img, (px, py), 4, (0, 0, 255), -1)
@@ -185,7 +181,7 @@ def display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE):
     for x, y in visited:
         px = x + origin_x
         py = y + origin_y
-        cv2.circle(img, (px, py), POI_VISIT_RADIUS, (60, 28, 100), 2)
+        cv2.circle(img, (px, py), state.poi_visit_radius, (60, 28, 100), 2)
 
     # Draw origin
     cv2.circle(img, (origin_x, origin_y), 6, (255, 0, 0), -1)
@@ -210,9 +206,9 @@ def display_global_pois(POI_VISIT_RADIUS, TARGET_POI_UPDATE_DISTANCE):
     )
 
     # draw current location
-    offset_x, offset_y = Global.origin_offset_xy
+    offset_x, offset_y = state.origin_offset_xy
     cv2.circle(img, (offset_x + mx + origin_x, offset_y + my + origin_y), 6, (255, 0, 0), -1)
-    cv2.circle(img, (offset_x + mx + origin_x, offset_y + my + origin_y), TARGET_POI_UPDATE_DISTANCE, (255, 0, 255), 2)  # for nearby poi finding
+    cv2.circle(img, (offset_x + mx + origin_x, offset_y + my + origin_y), state.target_poi_update_distance, (255, 0, 255), 2)  # for nearby poi finding
     cv2.putText(
         img,
         f"({offset_x}, {offset_y})",
