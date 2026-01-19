@@ -43,12 +43,12 @@ class ExitDungeonState(AIState):
             self._move_random_direction(1)
             return
 
-        portal_loc_xy = map_utils.get_mask_centers_xy(poi_masks["portal"])
+        portal_loc_xy = self._get_mask_centers_xy(poi_masks["portal"])
         portal_loc_rc = map_utils.convert_pt_xy_rc(portal_loc_xy[0])
         path, cost = self._get_shortest_path(
             self._downsample_mask(walkable_mask),
-            start_rc=map_utils.downscale_pt(ai.MINIMAP_CENTER_RC, ai.MAP_SHRINK_SCALE),
-            end_rc=map_utils.downscale_pt(portal_loc_rc)
+            start_rc=map_utils.downscale_pt(ai.MINIMAP_CENTER_RC, self.MAP_SHRINK_SCALE),
+            end_rc=map_utils.downscale_pt(portal_loc_rc, self.MAP_SHRINK_SCALE)
         )
 
         for i in range(len(path) - 3):

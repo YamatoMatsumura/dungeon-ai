@@ -73,17 +73,16 @@ class ReachBossState(AIState):
             )
             return
 
-
         poi_pts_xy = []
         poi_relevant_masks = ["bridge/room", "room", "carpet", "ship_room"]
         for relevant_mask in poi_relevant_masks:
 
-            poi_pts_xy.extend(map_utils.get_mask_centers_xy(walkable_poi_mask[relevant_mask]))
+            poi_pts_xy.extend(self._get_mask_centers_xy(walkable_poi_mask[relevant_mask]))
 
         # check if we found the boss loc
         self._boss_found_check(walkable_poi_mask["carpet"])
 
-        boss_heading_vec_xy = map_utils.get_boss_heading_vec_xy(game_region_ss, ai.GAME_REGION_CENTER_XY)
+        boss_heading_vec_xy = self._get_boss_heading_vec_xy(game_region_ss, ai.GAME_REGION_CENTER_XY)
         # DEBUG: Display boss heading arrow
         # debug.display_boss_heading(minimap_ss, boss_heading_vec_xy)
 
@@ -142,7 +141,7 @@ class ReachBossState(AIState):
         if np.all(self.current_map == 0):
             self.current_map = new_map
         else:
-            padded_current_map = map_utils.pad_map(self.current_map)
+            padded_current_map = self._pad_map(self.current_map)
             result = cv2.matchTemplate(padded_current_map, new_map, cv2.TM_CCOEFF_NORMED)
             _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
@@ -290,3 +289,28 @@ class ReachBossState(AIState):
             best_pt_xy = best_vec_xy + center_xy
 
             self.current_target_pt_xy = best_pt_xy
+
+    def _get_boss_heading_vec_xy(self, game_ss, game_region_center_xy):
+        template = cv2.imread('sprites/boss_icon.png', cv2.IMREAD_GRAYSCALE)
+
+        game_bgr = np.array(game_ss)[:,:,:3].copy()  # MSS gives a 4th alpha channel, so shrink this down to 3 channels
+        game_gray = cv2.cvtColor(game_bgr, cv2.COLOR_BGR2GRAY)  # convert the 3 channels to grayscale
+
+        result = cv2.matchTemplate(game_gray, template, cv2.TM_CCOEFF_NORMED)  
+
+        _, max_val, _, max_loc_xy = cv2.minMaxLoc(result)
+
+        template_height, template_width = template.shape
+        template_mid = np.array([max_loc_xy[0] + template_width // 2, max_loc_xy[1] + template_height // 2])
+
+        boss_heading_vec = template_mid - game_region_center_xy
+
+        return boss_heading_vec
+
+    def _pad_map(self, map):
+        height, width = map.shape[:2]
+
+        padded_map = np.zeros((3*height, 3*width), dtype=map.dtype)
+        padded_map[height:height*2, width:width*2] = map
+
+        return padded_map

@@ -143,18 +143,6 @@ class AIState:
 
         self._move_along_path(path, steps=len(path), keypress_duration=keypress_duration, slower_movement_adjustment=2)
 
-    def _get_nearest_target_rc(self, mask, start_rc):
-        # Distance transform does closest zero element for every non-zero element
-        # Reverse map since want closest walkable space(255) for every wall(0)
-        reversed_mask = 255 - mask
-        dist, inds = ndimage.distance_transform_edt(reversed_mask, return_indices = True)
-
-        nearest_r = inds[0, start_rc[0], start_rc[1]]
-        nearest_c = inds[1, start_rc[0], start_rc[1]]
-
-        nearest_coord = np.array([nearest_r, nearest_c])
-        return nearest_coord
-
     def _get_shortest_path(self, walkable_mask_small, start_rc, end_rc):
 
         # erode map to account for slight inaccuracies in movement
@@ -175,8 +163,7 @@ class AIState:
 
         try:
             indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-            print(f"Cost of current route is: {cost}")
-            debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+            # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
             return indices, cost
         except ValueError:
             print("No path found")
@@ -239,7 +226,7 @@ class AIState:
             return ['s', 'd']
         else:
             return None  # no movement
-    
+
     def _downsample_mask(self, mask):
         # Find contours
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
@@ -261,3 +248,19 @@ class AIState:
                 cv2.drawContours(downsampled_mask, [cnt_scaled], -1, color=0, thickness=-1)
         
         return downsampled_mask
+
+    def _get_mask_centers_xy(self, mask):
+        num_labels, labels = cv2.connectedComponents(mask, connectivity=4)
+
+        centroids = []
+        for label in range(1, num_labels):
+
+            mask = (labels == label).astype(np.uint8)
+            M = cv2.moments(mask)
+
+            if M["m00"] != 0:
+                center_x = int(M["m10"] / M["m00"])
+                center_y = int(M["m01"] / M["m00"])
+                centroids.append(np.array([center_x, center_y]))
+
+        return centroids
