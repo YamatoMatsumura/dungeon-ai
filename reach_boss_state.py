@@ -108,7 +108,7 @@ class ReachBossState(AIState):
         if not any(np.array_equal(self.current_target_pt_xy, p) for p in self.poi_pts_xy):
             self._update_target_poi(boss_heading_vec_xy, player_loc_xy=ai.MINIMAP_CENTER_XY)
         
-        # debug.display_global_pois(self)
+        debug.display_global_pois(self)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
         walkable_mask_small = self._downsample_mask(walkable_mask)

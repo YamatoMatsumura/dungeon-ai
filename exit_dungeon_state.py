@@ -47,7 +47,7 @@ class ExitDungeonState(AIState):
         portal_loc_rc = map_utils.convert_pt_xy_rc(portal_loc_xy[0])
         path, cost = self._get_shortest_path(
             self._downsample_mask(walkable_mask),
-            start_rc=map_utils.downscale_pt(ai.MINIMAP_CENTER_RC),
+            start_rc=map_utils.downscale_pt(ai.MINIMAP_CENTER_RC, ai.MAP_SHRINK_SCALE),
             end_rc=map_utils.downscale_pt(portal_loc_rc)
         )
 
