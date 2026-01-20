@@ -14,6 +14,7 @@ class ReachBossState(AIState):
         self.visited_xy = []
         self.poi_pts_xy = []
         self.current_target_pt_xy = None
+        self.last_known_boss_heading = None
 
 
         self.poi_proximity_radius = 15 # proximity distance two pois can be
@@ -56,6 +57,7 @@ class ReachBossState(AIState):
         # # DEBUG: print out all poi masks
         # for mask_name, poi_mask in poi_masks.items():
         #     debug.display_mask(mask_name, poi_mask)
+        debug.display_mask("Room_mask", poi_masks["room"])
 
         walkable_mask, walkable_poi_mask = self._get_walkable_pois(combined_poi_mask, poi_masks, player_rc=ai.MINIMAP_CENTER_RC)
         # DEBUG: display walkable masks
@@ -91,14 +93,14 @@ class ReachBossState(AIState):
         for pt in poi_pts_xy:
             poi_vec_xy.append(map_utils.convert_pt_to_vec(pt, center=ai.MINIMAP_CENTER_XY))
         # DEBUG: Display poi vectors
-        # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
+        debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
         # parse new pois to determine if they should be added to global pois
         for pt in poi_pts_xy:
             adjusted_x = int(pt[0] + self.origin_offset_xy[0])
             adjusted_y = int(pt[1] + self.origin_offset_xy[1])
 
-            self._parse_new_poi((adjusted_x, adjusted_y))
+            self._parse_new_poi((adjusted_x, adjusted_y), walkable_poi_mask["room"])
 
         # filter out already visited pois
         self._filter_visited_pois()
@@ -189,7 +191,7 @@ class ReachBossState(AIState):
 
         return room_mask
 
-    def _parse_new_poi(self, new_poi):
+    def _parse_new_poi(self, new_poi, room_mask):
 
         # don't add it if it's already in the global pois
         for poi in self.poi_pts_xy:
@@ -200,28 +202,60 @@ class ReachBossState(AIState):
         if self.boss_loc is not None and (new_poi == self.boss_loc).all():
             self.poi_pts_xy.append(new_poi)
             return
-
+        
         # make sure new poi isn't too close to an existing poi
-        for existing_poi in self.poi_pts_xy:
-            distance = np.linalg.norm([existing_poi[0] - new_poi[0], existing_poi[1] - new_poi[1]])
+        for existing_poi_xy in self.poi_pts_xy:
+            distance = np.linalg.norm([existing_poi_xy[0] - new_poi[0], existing_poi_xy[1] - new_poi[1]])
             if distance < self.poi_proximity_radius:
-                    return
+                return
 
-        # else, add the new poi to globals
-        self.poi_pts_xy.append(new_poi)
+        # check if this new point falls in a room
+        num_labels, labels = cv2.connectedComponents(room_mask, connectivity=4)
+        local_new_poi_xy = (new_poi[0] - self.origin_offset_xy[0], new_poi[1] - self.origin_offset_xy[1])
+        if labels[local_new_poi_xy[1], local_new_poi_xy[0]] != 0:
+
+            matched_label = labels[local_new_poi_xy[1], local_new_poi_xy[0]]
+
+            # delete existing poi's that are apart of the same connected component as this new point
+            rows, cols = room_mask.shape
+            for existing_poi_xy in self.poi_pts_xy.copy():
+                # don't delete the boss_loc poi or the current target poi
+                if (not np.array_equal(existing_poi_xy, self.boss_loc) and 
+                    not np.array_equal(existing_poi_xy, self.current_target_pt_xy)
+                ):
+                    existing_local_poi_xy = (existing_poi_xy[0] - self.origin_offset_xy[0], existing_poi_xy[1] - self.origin_offset_xy[1])
+                    if 0 <= existing_local_poi_xy[0] < cols and 0 <= existing_local_poi_xy[1] < rows:
+                        if labels[existing_local_poi_xy[1], existing_local_poi_xy[0]] == matched_label:
+                            self.poi_pts_xy.remove(existing_poi_xy)
+
+            # add the center of the connected component this new point is in
+            ys, xs = np.where(labels == matched_label)
+            center_x = int(xs.mean())
+            center_y = int(ys.mean())
+            self.poi_pts_xy.append(tuple(np.array([center_x, center_y]) + self.origin_offset_xy))
+
+
+        # condensing down poi's to the center is only done to rooms for now
+        # if the point doesn't lie in a room from the room mask, add it to potential pois just to be safe
+        else:
+            self.poi_pts_xy.append(new_poi)
     
     def _boss_found_check(self, boss_room_mask):
-        num_labels, labels = cv2.connectedComponents(boss_room_mask, connectivity=4)
 
-        for label in range(1, num_labels):
+        # only check for boss loc if not already found
+        if self.boss_loc is None:
+            num_labels, labels = cv2.connectedComponents(boss_room_mask, connectivity=4)
 
-            mask = (labels == label).astype(np.uint8)
-            M = cv2.moments(mask)
+            for label in range(1, num_labels):
 
-            if M["m00"] != 0:
-                center_x = int(M["m10"] / M["m00"])
-                center_y = int(M["m01"] / M["m00"])
-                self.boss_loc = np.array([center_x, center_y]) + self.origin_offset_xy
+                mask = (labels == label).astype(np.uint8)
+                M = cv2.moments(mask)
+
+                if M["m00"] != 0:
+                    center_x = int(M["m10"] / M["m00"])
+                    center_y = int(M["m01"] / M["m00"])
+
+                    self.boss_loc = np.array([center_x, center_y]) + self.origin_offset_xy
 
     def _filter_visited_pois(self):
         global_pois_copy = self.poi_pts_xy.copy()
@@ -233,7 +267,7 @@ class ReachBossState(AIState):
                     # if boss loc is about to be counted as visited
                     if self.boss_loc is not None and (poi_xy == self.boss_loc).all():
                         self.state_done = True
-                        print("----------------About to mark boss loc as visited-----------------")
+                        print("----------------Marking boss as visited, moving on to defeating boss-----------------")
 
                     self.poi_pts_xy.remove(poi_xy)
                     break
@@ -300,10 +334,15 @@ class ReachBossState(AIState):
 
         _, max_val, _, max_loc_xy = cv2.minMaxLoc(result)
 
+        if max_val < 0.5:
+            print(f"Bad confidence, assuming boss icon dissapeared, using last known heading")
+            return self.last_known_boss_heading
+
         template_height, template_width = template.shape
         template_mid = np.array([max_loc_xy[0] + template_width // 2, max_loc_xy[1] + template_height // 2])
 
         boss_heading_vec = template_mid - game_region_center_xy
+        self.last_known_boss_heading = boss_heading_vec
 
         return boss_heading_vec
 
