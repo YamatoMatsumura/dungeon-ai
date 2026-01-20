@@ -55,7 +55,7 @@ class ExitDungeonState(AIState):
             self._move_along_path(path[i:i+3], steps=2, keypress_duration=ai.KEYPRESS_DURATION, scale=self.MAP_SHRINK_SCALE)
             press_keys([VK_CODES['f']])
 
-    def _move_random_direction(duration):
+    def _move_random_direction(self, duration):
         dir_options = [['w'], ['a'], ['s'], ['d'], ['w', 'a'], ['w', 'd'], ['s', 'a'], ['s', 'd']]
         dir = random.choice(dir_options)
 

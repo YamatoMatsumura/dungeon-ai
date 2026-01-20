@@ -57,7 +57,6 @@ class ReachBossState(AIState):
         # # DEBUG: print out all poi masks
         # for mask_name, poi_mask in poi_masks.items():
         #     debug.display_mask(mask_name, poi_mask)
-        debug.display_mask("Room_mask", poi_masks["room"])
 
         walkable_mask, walkable_poi_mask = self._get_walkable_pois(combined_poi_mask, poi_masks, player_rc=ai.MINIMAP_CENTER_RC)
         # DEBUG: display walkable masks
@@ -93,7 +92,7 @@ class ReachBossState(AIState):
         for pt in poi_pts_xy:
             poi_vec_xy.append(map_utils.convert_pt_to_vec(pt, center=ai.MINIMAP_CENTER_XY))
         # DEBUG: Display poi vectors
-        debug.display_poi_vectors(minimap_ss, poi_vec_xy)
+        # debug.display_poi_vectors(minimap_ss, poi_vec_xy)
 
         # parse new pois to determine if they should be added to global pois
         for pt in poi_pts_xy:
@@ -109,7 +108,7 @@ class ReachBossState(AIState):
         if not any(np.array_equal(self.current_target_pt_xy, p) for p in self.poi_pts_xy):
             self._update_target_poi(boss_heading_vec_xy, player_loc_xy=ai.MINIMAP_CENTER_XY)
         
-        debug.display_global_pois(self)
+        # debug.display_global_pois(self)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
         walkable_mask_small = self._downsample_mask(walkable_mask)
@@ -335,7 +334,6 @@ class ReachBossState(AIState):
         _, max_val, _, max_loc_xy = cv2.minMaxLoc(result)
 
         if max_val < 0.5:
-            print(f"Bad confidence, assuming boss icon dissapeared, using last known heading")
             return self.last_known_boss_heading
 
         template_height, template_width = template.shape
