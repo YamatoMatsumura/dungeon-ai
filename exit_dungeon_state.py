@@ -1,5 +1,7 @@
 import numpy as np
 import random
+import cv2
+import time
 
 from ai_state import AIState
 from key_press import press_keys, VK_CODES
@@ -55,6 +57,11 @@ class ExitDungeonState(AIState):
             self._move_along_path(path[i:i+3], steps=2, keypress_duration=ai.KEYPRESS_DURATION, scale=self.MAP_SHRINK_SCALE)
             press_keys([VK_CODES['f']])
 
+            # check if dungeon was exited
+            exit_check_ss = ai.take_minimap_screenshot()
+            if self._check_exited_dungeon(exit_check_ss):
+                self.state_done = True
+
     def _move_random_direction(self, duration):
         dir_options = [['w'], ['a'], ['s'], ['d'], ['w', 'a'], ['w', 'd'], ['s', 'a'], ['s', 'd']]
         dir = random.choice(dir_options)
@@ -64,3 +71,14 @@ class ExitDungeonState(AIState):
             keys_to_press.append(VK_CODES[key])
 
         press_keys(keys_to_press, duration=duration)
+    
+    def _check_exited_dungeon(self, minimap_ss):
+        template = cv2.imread('sprites/loading_icon.png', cv2.IMREAD_GRAYSCALE)
+
+        minimap_gray = cv2.cvtColor(minimap_ss, cv2.COLOR_BGRA2GRAY)
+
+        result = cv2.matchTemplate(minimap_gray, template, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc_xy = cv2.minMaxLoc(result)
+
+        if max_val > 0.9:
+            return True
