@@ -231,8 +231,12 @@ class ReachBossState(AIState):
             ys, xs = np.where(labels == matched_label)
             center_x = int(xs.mean())
             center_y = int(ys.mean())
-            self.poi_pts_xy.append(tuple(np.array([center_x, center_y]) + self.origin_offset_xy))
 
+            # just add new poi if center happens to be unreachable
+            if room_mask[center_y][center_x] == 0:
+                self.poi_pts_xy.append(tuple(new_poi + self.origin_offset_xy))
+            else:
+                self.poi_pts_xy.append(tuple(np.array([center_x, center_y]) + self.origin_offset_xy))
 
         # condensing down poi's to the center is only done to rooms for now
         # if the point doesn't lie in a room from the room mask, add it to potential pois just to be safe

@@ -114,7 +114,6 @@ class AIState:
         
         player_r, player_c = player_rc
         center_label = labels[player_r, player_c]
-
         # create overall walkable mask
         walkable_mask = np.zeros_like(labels, dtype=np.uint8)
         for label in range(1, num_labels):
