@@ -4,7 +4,7 @@ import numpy as np
 import pyautogui
 from scipy import ndimage
 from skimage.graph import route_through_array
-
+import keyboard
 
 import map_utils
 import debug_prints as debug
@@ -17,6 +17,9 @@ class AIState:
         self.MOVE_DISTANCE = 10
         self.MAP_SHRINK_SCALE = 2
         self.state_done = False
+
+        self.debug_mode = False
+
 
     @abstractmethod
     def update(self, ai):
@@ -162,7 +165,9 @@ class AIState:
 
         try:
             indices, cost = route_through_array(cost_array, start=start_rc, end=end_rc, fully_connected=True)
-            # debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
+
+            if self.debug_mode:
+                debug.display_pathfinding(walkable_mask_small, indices, start_rc, end_rc)
             return indices, cost
         except ValueError:
             print("No path found")
@@ -263,3 +268,7 @@ class AIState:
                 centroids.append(np.array([center_x, center_y]))
 
         return centroids
+
+    def _check_debug_toggle(self):
+        if keyboard.is_pressed("n"):
+            self.debug_mode = not self.debug_mode

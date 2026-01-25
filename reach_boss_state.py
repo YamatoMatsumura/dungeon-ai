@@ -23,8 +23,9 @@ class ReachBossState(AIState):
 
         self.boss_loc = None
 
-
     def update(self, ai):
+        self._check_debug_toggle()
+
         minimap_ss = ai.take_minimap_screenshot()
         game_region_ss = ai.take_game_region_screenshot()
 
@@ -108,7 +109,8 @@ class ReachBossState(AIState):
         if not any(np.array_equal(self.current_target_pt_xy, p) for p in self.poi_pts_xy):
             self._update_target_poi(boss_heading_vec_xy, player_loc_xy=ai.MINIMAP_CENTER_XY)
         
-        # debug.display_global_pois(self)
+        if self.debug_mode:
+            debug.display_global_pois(self)
 
         # shrink map (issue with keypresses can only be so quick, smaller map = less path points returned = more accurate for key press to grid tile)
         walkable_mask_small = self._downsample_mask(walkable_mask)
@@ -270,7 +272,6 @@ class ReachBossState(AIState):
                     # if boss loc is about to be counted as visited
                     if self.boss_loc is not None and (poi_xy == self.boss_loc).all():
                         self.state_done = True
-                        print("----------------Marking boss as visited, moving on to defeating boss-----------------")
 
                     self.poi_pts_xy.remove(poi_xy)
                     break
@@ -281,7 +282,6 @@ class ReachBossState(AIState):
             # check if there's a nearby poi
             for xy in self.poi_pts_xy:
                 if np.linalg.norm(xy - center_xy) < self.target_poi_update_distance:
-                    print(f"Found nearby poi of {xy}. Aiming for this instead of best aligned")
                     self.current_target_pt_xy = xy
                     return
 

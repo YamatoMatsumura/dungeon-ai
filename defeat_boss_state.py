@@ -11,6 +11,8 @@ class DefeatBossState(AIState):
         super().__init__()
 
     def update(self, ai):
+        self._check_debug_toggle()
+
         minimap_ss = ai.take_minimap_screenshot()
 
         poi_masks = self._get_poi_masks(minimap_ss)

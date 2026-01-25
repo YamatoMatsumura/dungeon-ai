@@ -1,7 +1,6 @@
 import numpy as np
 import random
 import cv2
-import time
 
 from ai_state import AIState
 from key_press import press_keys, VK_CODES
@@ -11,7 +10,11 @@ class ExitDungeonState(AIState):
     def __init__(self):
         super().__init__()
 
+        self.max_move_dist = 20
+
     def update(self, ai):
+        self._check_debug_toggle()
+
         minimap_ss = ai.take_minimap_screenshot()
 
         poi_masks = self._get_poi_masks(minimap_ss)
@@ -54,6 +57,10 @@ class ExitDungeonState(AIState):
         )
 
         for i in range(len(path) - 3):
+
+            if i*3 > self.max_move_dist:
+                break
+
             self._move_along_path(path[i:i+3], steps=2, keypress_duration=ai.KEYPRESS_DURATION, scale=self.MAP_SHRINK_SCALE)
             press_keys([VK_CODES['f']])
 
