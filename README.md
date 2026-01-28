@@ -39,15 +39,15 @@ The agent captures screenshots of the minimap and processes them into multiple b
 
 | Original Minimap |
 |-----------------|
-| ![Original Minimap](readme_imgs/minimap_ss.png) |
+| <img src="readme_imgs/minimap_ss.png" width="400" style="border:1px solid #ccc; border-radius:4px;"> |
 
 | Sand Room Mask | Bridge Room Mask | Room Mask |
 |----------------|-----------------|-----------|
-| ![Sand Room](readme_imgs/sand_room.png) | ![Bridge Room](readme_imgs/bridge_room.png) | ![Room](readme_imgs/room.png) |
+| <img src="readme_imgs/sand_room.png" width="200" style="border:1px solid #ccc; border-radius:4px;"> | <img src="readme_imgs/bridge_room.png" width="200" style="border:1px solid #ccc; border-radius:4px;"> | <img src="readme_imgs/room.png" width="200" style="border:1px solid #ccc; border-radius:4px;"> |
 
 | Walkable Mask |
 |---------------|
-| ![Walkable Mask](readme_imgs/walkable_map.png) |
+| <img src="readme_imgs/walkable_map.png" width="400" style="border:1px solid #ccc; border-radius:4px;"> |
 
 ---
 
@@ -56,7 +56,8 @@ The agent also captures screenshots of the game window, where template matching 
 
 | Game Window | Boss Heading Detection |
 |------------|----------------------|
-| ![Game Window](readme_imgs/game_window.png) | ![Boss Heading](readme_imgs/boss_heading.png) |
+| <img src="readme_imgs/game_window.png" width="300" style="border:1px solid #ccc; border-radius:4px;"> | <img src="readme_imgs/boss_heading.png" width="200" style="border:1px solid #ccc; border-radius:4px;"> |
+
 
 
 ### Pathfinding
