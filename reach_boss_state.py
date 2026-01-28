@@ -24,6 +24,7 @@ class ReachBossState(AIState):
         self.boss_loc = None
 
     def update(self, ai):
+        self.debug_mode = True
         self._check_debug_toggle()
 
         minimap_ss = ai.take_minimap_screenshot()
@@ -55,13 +56,13 @@ class ReachBossState(AIState):
 
         # rooms done seperatly since looks at distance transform of all poi's instead of pixel values (can't just look at hsv value)
         poi_masks["room"] = self._get_room_mask(combined_poi_mask)
-        # # DEBUG: print out all poi masks
-        # for mask_name, poi_mask in poi_masks.items():
-        #     debug.display_mask(mask_name, poi_mask)
+        # DEBUG: print out all poi masks
+        for mask_name, poi_mask in poi_masks.items():
+            debug.display_mask(mask_name, poi_mask)
 
         walkable_mask, walkable_poi_mask = self._get_walkable_pois(combined_poi_mask, poi_masks, player_rc=ai.MINIMAP_CENTER_RC)
         # DEBUG: display walkable masks
-        # debug.display_mask("walkable_map", walkable_mask)
+        debug.display_mask("walkable_map", walkable_mask)
         # for mask_name, poi_mask in walkable_poi_mask.items():
         #     debug.display_mask(f"{mask_name}_walkable", poi_mask)
 
@@ -86,7 +87,7 @@ class ReachBossState(AIState):
 
         boss_heading_vec_xy = self._get_boss_heading_vec_xy(game_region_ss, ai.GAME_REGION_CENTER_XY)
         # DEBUG: Display boss heading arrow
-        # debug.display_boss_heading(minimap_ss, boss_heading_vec_xy)
+        debug.display_boss_heading(minimap_ss, boss_heading_vec_xy)
 
         # convert poi pts to vecs
         poi_vec_xy = []
