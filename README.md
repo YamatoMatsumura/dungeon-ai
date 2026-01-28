@@ -29,82 +29,34 @@ python main.py
 
 ## Example Result
 
-
 ## Computer Vision Approach
 The agent relies entirely on visual input from the game window. Key regions such as the minimap are extracted and processed into binary masks to represent the game state. Using this information along with the estimated heading of the boss, the agent generates keyboard inputs that navigate the dungeon and pathfind toward the boss.
 
 ### Minimap Processing
-The agent captures screenshots of the minimap and process them into multiple binary masks. These masks are combined to identify walkable spaces and define the navigable area for the current game state.
+The agent captures screenshots of the minimap and processes them into multiple binary masks. These masks are combined to identify walkable spaces and define the navigable area for the current game state.
 
-<div align="center">
+#### Visual Overview
 
-  <!-- Top row: original minimap -->
-  <figure style="display: inline-block; margin: 20px 0; text-align: center;">
-    <figcaption><strong>Original Minimap</strong></figcaption>
-    <img src="readme_imgs/minimap_ss.png"
-         width="400"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
+| Original Minimap |
+|-----------------|
+| ![Original Minimap](readme_imgs/minimap_ss.png) |
 
-  <br>
+| Sand Room Mask | Bridge Room Mask | Room Mask |
+|----------------|-----------------|-----------|
+| ![Sand Room](readme_imgs/sand_room.png) | ![Bridge Room](readme_imgs/bridge_room.png) | ![Room](readme_imgs/room.png) |
 
-  <!-- Middle row: 3 masks side-by-side -->
-  <figure style="display: inline-block; margin: 0 10px; text-align: left; vertical-align: top;">
-    <figcaption><strong>Sand Room Mask</strong></figcaption>
-    <img src="readme_imgs/sand_room.png"
-         width="200"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
+| Walkable Mask |
+|---------------|
+| ![Walkable Mask](readme_imgs/walkable_map.png) |
 
-  <figure style="display: inline-block; margin: 0 10px; text-align: center; vertical-align: top;">
-    <figcaption><strong>Bridge Room Mask</strong></figcaption>
-    <img src="readme_imgs/bridge_room.png"
-         width="200"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
-
-  <figure style="display: inline-block; margin: 0 10px; text-align: center; vertical-align: top;">
-    <figcaption><strong>Room Mask</strong></figcaption>
-    <img src="readme_imgs/room.png"
-         width="200"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
-
-  <br>
-
-  <!-- Bottom row: final walkable map -->
-  <figure style="display: inline-block; margin: 20px 0; text-align: center;">
-    <figcaption><strong>Walkable Mask</strong></figcaption>
-    <img src="readme_imgs/walkable_map.png"
-         width="400"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
-
-</div>
-
-
+---
 
 ### Boss Heading
 The agent also captures screenshots of the game window, where template matching is used to determine the direction of the quest icon. This provides an estimate of the general heading of the boss.
 
-<div align="center">
-
-  <figure style="display: inline-block; margin: 0 20px; vertical-align: top;">
-    <figcaption><strong>Game Window</strong></figcaption>
-    <img src="readme_imgs/game_window.png"
-         width="300"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
-
-  <figure style="display: inline-block; margin: 0 20px; vertical-align: top;">
-    <figcaption><strong>Boss Heading Detection</strong></figcaption>
-    <img src="readme_imgs/boss_heading.png"
-         width="200"
-         style="border: 1px solid #ccc; border-radius: 4px;" />
-  </figure>
-
-</div>
-
+| Game Window | Boss Heading Detection |
+|------------|----------------------|
+| ![Game Window](readme_imgs/game_window.png) | ![Boss Heading](readme_imgs/boss_heading.png) |
 
 
 ### Pathfinding
