@@ -27,7 +27,8 @@ python main.py
 2. Applies computer vision techniques to understand the current game state
 3. Selects and executes actions based on the detected state of the game
 
-## Example Result
+## Project Demo 
+[![Demo Video](https://img.youtube.com/vi/-sq4QlKFgRk/0.jpg)](https://www.youtube.com/watch?v=-sq4QlKFgRk)
 
 ## Computer Vision Approach
 The agent relies entirely on visual input from the game window. Key regions such as the minimap are extracted and processed into binary masks to represent the game state. Using this information along with the estimated heading of the boss, the agent generates keyboard inputs that navigate the dungeon and pathfind toward the boss.
